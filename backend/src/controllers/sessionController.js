@@ -1,0 +1,197 @@
+/**
+ * Session Controller
+ * Handles session-related HTTP requests
+ */
+
+const SessionService = require("../services/sessionService");
+const UserRepository = require("../repositories/userRepository");
+const { generateToken } = require("../config/jwt");
+const crypto = require("crypto");
+
+class SessionController {
+  /**
+   * POST /api/sessions/start
+   * Start a new quiz session
+   */
+  static async startSession(req, res, next) {
+    try {
+      const { quiz_id } = req.body;
+      const session = await SessionService.startSession(quiz_id, req.user.id);
+      res.status(201).json(session);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/sessions/join
+   * Join a session as a participant
+   */
+  static async joinSession(req, res, next) {
+    try {
+      const { session_code } = req.body;
+      // Sanitize nickname: trim whitespace and strip HTML tags
+      const nickname = (req.body.nickname || "")
+        .trim()
+        .replace(/<[^>]*>/g, "")
+        .slice(0, 50);
+      if (!nickname) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Nickname is required" });
+      }
+      let userId = req.user ? req.user.id : null;
+      let isGuest = false;
+
+      if (!userId) {
+        // Create temporary guest user with a random unguessable password hash
+        const guestEmail = `guest_${Date.now()}_${crypto.randomBytes(4).toString("hex")}@guest.local`;
+        const guestUser = await UserRepository.createUser({
+          name: nickname,
+          email: guestEmail,
+          passwordHash: crypto.randomBytes(32).toString("hex"),
+          role: "student",
+        });
+        userId = guestUser.id;
+        isGuest = true;
+      }
+
+      const participant = await SessionService.joinSession(
+        session_code,
+        userId,
+        nickname,
+      );
+
+      let responsePayload = { ...participant, session_code };
+
+      // If guest, generate a token for session auth
+      if (isGuest) {
+        const token = generateToken({
+          id: userId,
+          role: "student",
+          nickname: nickname,
+        });
+        responsePayload = {
+          ...participant,
+          session_code,
+          token,
+          guestUserId: userId,
+        };
+      }
+
+      res.status(201).json(responsePayload);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/sessions/:sessionId
+   * Get session details
+   */
+  static async getSession(req, res, next) {
+    try {
+      const sessionData = await SessionService.getSession(req.params.sessionId);
+      res.json(sessionData);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/sessions/by-code/:code
+   * Get session details by session code
+   */
+  static async getSessionByCode(req, res, next) {
+    try {
+      const sessionData = await SessionService.getSessionByCode(
+        req.params.code,
+      );
+      res.json(sessionData);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/sessions/:sessionId/start
+   * Start quiz (move from Lobby to Active)
+   */
+  static async startQuiz(req, res, next) {
+    try {
+      const session = await SessionService.startQuiz(
+        req.params.sessionId,
+        req.user.id,
+      );
+      res.json(session);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/sessions/:sessionId/next-question
+   * Move to next question
+   */
+  static async nextQuestion(req, res, next) {
+    try {
+      const session = await SessionService.nextQuestion(
+        req.params.sessionId,
+        req.user.id,
+      );
+      res.json(session);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/sessions/:sessionId/answer
+   * Submit answer
+   */
+  static async submitAnswer(req, res, next) {
+    try {
+      const { question_id, option_id, response_time } = req.body;
+      const result = await SessionService.submitAnswer(
+        req.params.sessionId,
+        req.user.id,
+        question_id,
+        option_id,
+        response_time,
+      );
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/sessions/:sessionId/leaderboard
+   * Get session leaderboard
+   */
+  static async getLeaderboard(req, res, next) {
+    try {
+      const leaderboard = await SessionService.getLeaderboard(
+        req.params.sessionId,
+      );
+      res.json(leaderboard);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/sessions/history
+   * Get quiz history for the logged-in student
+   */
+  static async getQuizHistory(req, res, next) {
+    try {
+      const history = await SessionService.getQuizHistory(req.user.id);
+      res.json(history);
+    } catch (error) {
+      next(error);
+    }
+  }
+}
+
+module.exports = SessionController;
