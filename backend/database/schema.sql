@@ -1,27 +1,3 @@
--- Alter role check if exists
-ALTER TABLE IF EXISTS users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE IF EXISTS users ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'teacher', 'student'));
-
--- Alter quiz theme constraint for existing databases
-ALTER TABLE IF EXISTS quizzes DROP CONSTRAINT IF EXISTS quizzes_theme_check;
-UPDATE quizzes SET theme = 'none' WHERE theme IS NOT NULL AND theme NOT IN (
-  'none','light','dark','colorful','space','arctic','biology','ocean','retro','sunset','forest','galaxy','candy','minimal','neon',
-  'chemistry','cyberpunk','english','geography','history','jungle','maths','midnight','physics','sea','sunlight','underwater','volcano'
-);
-ALTER TABLE IF EXISTS quizzes ADD CONSTRAINT quizzes_theme_check CHECK (theme IN (
-  'none','light','dark','colorful','space','arctic','biology','ocean','retro','sunset','forest','galaxy','candy','minimal','neon',
-  'chemistry','cyberpunk','english','geography','history','jungle','maths','midnight','physics','sea','sunlight','underwater','volcano'
-));
-
--- Alter question constraints for existing databases
-ALTER TABLE IF EXISTS questions DROP CONSTRAINT IF EXISTS questions_time_limit_check;
-ALTER TABLE IF EXISTS questions DROP CONSTRAINT IF EXISTS questions_points_check;
-ALTER TABLE IF EXISTS questions ADD CONSTRAINT questions_time_limit_check CHECK (time_limit >= 1 AND time_limit <= 300);
-ALTER TABLE IF EXISTS questions ADD CONSTRAINT questions_points_check CHECK (points >= 1 AND points <= 2000);
-
--- Alter participant unique constraint for existing databases
-ALTER TABLE IF EXISTS participants DROP CONSTRAINT IF EXISTS participants_session_id_user_id_nickname_key;
-
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
@@ -114,6 +90,23 @@ CREATE TABLE IF NOT EXISTS leaderboard (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(session_id, participant_id)
 );
+
+-- Alter constraints for existing databases (safe after tables exist)
+ALTER TABLE IF EXISTS users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE IF EXISTS users ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'teacher', 'student'));
+
+ALTER TABLE IF EXISTS quizzes DROP CONSTRAINT IF EXISTS quizzes_theme_check;
+ALTER TABLE IF EXISTS quizzes ADD CONSTRAINT quizzes_theme_check CHECK (theme IN (
+  'none','light','dark','colorful','space','arctic','biology','ocean','retro','sunset','forest','galaxy','candy','minimal','neon',
+  'chemistry','cyberpunk','english','geography','history','jungle','maths','midnight','physics','sea','sunlight','underwater','volcano'
+));
+
+ALTER TABLE IF EXISTS questions DROP CONSTRAINT IF EXISTS questions_time_limit_check;
+ALTER TABLE IF EXISTS questions DROP CONSTRAINT IF EXISTS questions_points_check;
+ALTER TABLE IF EXISTS questions ADD CONSTRAINT questions_time_limit_check CHECK (time_limit >= 1 AND time_limit <= 300);
+ALTER TABLE IF EXISTS questions ADD CONSTRAINT questions_points_check CHECK (points >= 1 AND points <= 2000);
+
+ALTER TABLE IF EXISTS participants DROP CONSTRAINT IF EXISTS participants_session_id_user_id_nickname_key;
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
