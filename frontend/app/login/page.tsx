@@ -69,11 +69,11 @@ export default function LoginPage() {
       login(user, token);
 
       if (user.role === "admin") {
-        router.push("/admin/dashboard");
+        router.replace("/admin/dashboard");
       } else if (user.role === "teacher") {
-        router.push("/teacher/dashboard");
+        router.replace("/teacher/dashboard");
       } else {
-        router.push("/student/dashboard");
+        router.replace("/student/dashboard");
       }
     } catch (err: any) {
       const respData = err.response?.data;

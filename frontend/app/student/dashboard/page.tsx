@@ -149,7 +149,7 @@ export default function StudentDashboard() {
 
   const handleLogout = () => {
     logout();
-    router.push("/login");
+    router.replace("/login");
   };
 
   const handleJoinSession = async (e: React.FormEvent) => {
@@ -163,7 +163,7 @@ export default function StudentDashboard() {
         session_code: sessionCode.toUpperCase(),
         nickname: nickname || user?.name || "Student",
       });
-      router.push(
+      router.replace(
         `/quiz-player/${response.data.session_code || sessionCode.toUpperCase()}`,
       );
     } catch (err: any) {
@@ -267,7 +267,7 @@ export default function StudentDashboard() {
             <button
               onClick={() => {
                 logout();
-                router.push("/register");
+                router.replace("/register");
               }}
               className="text-cyan-400 hover:underline font-semibold"
             >

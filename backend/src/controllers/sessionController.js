@@ -4,9 +4,23 @@
  */
 
 const SessionService = require("../services/sessionService");
+const SessionRepository = require("../repositories/sessionRepository");
+const QuizRepository = require("../repositories/quizRepository");
 const UserRepository = require("../repositories/userRepository");
 const { generateToken } = require("../config/jwt");
 const crypto = require("crypto");
+
+/**
+ * Sanitize user input by stripping all HTML/script content
+ */
+function sanitizeString(str) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
 
 class SessionController {
   /**
@@ -30,11 +44,11 @@ class SessionController {
   static async joinSession(req, res, next) {
     try {
       const { session_code } = req.body;
-      // Sanitize nickname: trim whitespace and strip HTML tags
-      const nickname = (req.body.nickname || "")
-        .trim()
-        .replace(/<[^>]*>/g, "")
-        .slice(0, 50);
+      // Sanitize nickname: trim whitespace and HTML-encode special chars
+      const nickname = sanitizeString((req.body.nickname || "").trim()).slice(
+        0,
+        50,
+      );
       if (!nickname) {
         return res
           .status(400)
@@ -87,11 +101,29 @@ class SessionController {
 
   /**
    * GET /api/sessions/:sessionId
-   * Get session details
+   * Get session details (only for session owner or participant)
    */
   static async getSession(req, res, next) {
     try {
-      const sessionData = await SessionService.getSession(req.params.sessionId);
+      const sessionId = req.params.sessionId;
+
+      // Authorization: verify user is owner or participant
+      const session = await SessionRepository.getSessionById(sessionId);
+      if (session) {
+        const quiz = await QuizRepository.getQuizById(session.quiz_id);
+        const isOwner = quiz && quiz.teacher_id === req.user.id;
+        const participant = await SessionRepository.getParticipant(
+          sessionId,
+          req.user.id,
+        );
+        if (!isOwner && !participant) {
+          return res
+            .status(403)
+            .json({ error: "You are not authorized to view this session" });
+        }
+      }
+
+      const sessionData = await SessionService.getSession(sessionId);
       res.json(sessionData);
     } catch (error) {
       next(error);
@@ -107,6 +139,23 @@ class SessionController {
       const sessionData = await SessionService.getSessionByCode(
         req.params.code,
       );
+
+      // Authorization: user must be quiz owner or session participant
+      const session = sessionData.session;
+      const quiz = await QuizRepository.getQuizById(session.quiz_id);
+      const isOwner = quiz && quiz.teacher_id === req.user.id;
+      if (!isOwner) {
+        const participant = await SessionRepository.getParticipant(
+          session.id,
+          req.user.id,
+        );
+        if (!participant) {
+          return res
+            .status(403)
+            .json({ error: "Not authorized to view this session" });
+        }
+      }
+
       res.json(sessionData);
     } catch (error) {
       next(error);

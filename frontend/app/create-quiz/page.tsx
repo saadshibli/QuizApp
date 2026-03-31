@@ -29,7 +29,7 @@ export default function QuizSetupPage() {
   useEffect(() => {
     if (!_hasHydrated) return;
     if (!user || (user.role !== "teacher" && user.role !== "admin")) {
-      router.push("/login");
+      router.replace("/login");
     }
   }, [user, _hasHydrated, router]);
 

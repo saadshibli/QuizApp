@@ -5,19 +5,20 @@
 
 const rateLimit = require("express-rate-limit");
 
-// Login rate limiter - 20 requests per 15 minutes (increased for dev)
+// Login rate limiter - 20 requests per 15 minutes
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20, // limit each IP to 20 requests per windowMs
   message: "Too many login attempts, please try again later",
   standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  skipSuccessfulRequests: true, // Only count failed login attempts
 });
 
 // General API rate limiter
 const apiLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW || "15") * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || "1000"), // Increased from 100 to 1000 for development
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || "200"),
   message: "Too many requests from this IP, please try again later",
 });
 

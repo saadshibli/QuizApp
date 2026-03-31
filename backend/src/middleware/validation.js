@@ -86,13 +86,13 @@ const schemas = {
   }),
 
   addQuestion: Joi.object({
-    question_text: Joi.string().min(1).required(),
+    question_text: Joi.string().trim().min(1).max(5000).required(),
     time_limit: Joi.number().min(1).max(300).default(30),
     points: Joi.number().min(1).max(2000).default(100),
   }),
 
   addOption: Joi.object({
-    option_text: Joi.string().min(1).required(),
+    option_text: Joi.string().trim().min(1).max(1000).required(),
     is_correct: Joi.boolean().default(false),
   }),
 

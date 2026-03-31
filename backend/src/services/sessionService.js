@@ -194,6 +194,11 @@ class SessionService {
       throw ApiError.notFound("Invalid participant or question");
     }
 
+    // Verify the question belongs to this session's quiz
+    if (question.quiz_id !== session.quiz_id) {
+      throw ApiError.badRequest("Question does not belong to this session");
+    }
+
     // Verify the submitted option belongs to this question
     const validOption = question.options.find((o) => o.id === optionId);
     if (!validOption) {

@@ -228,10 +228,14 @@ class SessionRepository {
   static async getLeaderboard(sessionId) {
     const result = await query(
       `SELECT l.id, l.session_id, l.participant_id, l.rank, l.total_score,
-              p.nickname, p.user_id
+              p.nickname, p.user_id,
+              COALESCE(SUM(a.response_time), 0) AS total_response_time,
+              COUNT(a.id) AS answers_count
        FROM leaderboard l
        JOIN participants p ON l.participant_id = p.id
+       LEFT JOIN answers a ON a.participant_id = p.id
        WHERE l.session_id = $1
+       GROUP BY l.id, l.session_id, l.participant_id, l.rank, l.total_score, p.nickname, p.user_id
        ORDER BY l.rank ASC`,
       [sessionId],
     );

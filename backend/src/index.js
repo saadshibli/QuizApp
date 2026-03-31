@@ -26,6 +26,9 @@ const errorHandler = require("./middleware/errorHandler");
 // Import Socket.IO handlers
 const { initializeSocketHandlers } = require("./socket/handlers");
 
+// Import JWT for socket auth
+const { verifyToken } = require("./config/jwt");
+
 // Import database setup
 const { runMigrations } = require("../database/schema");
 
@@ -62,11 +65,13 @@ app.use(express.urlencoded({ limit: "1mb", extended: true }));
 // Rate limiting
 app.use("/api/", apiLimiter);
 
-// Request logging middleware (optional)
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-  next();
-});
+// Request logging middleware (dev only)
+if (process.env.NODE_ENV !== "production") {
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+    next();
+  });
+}
 
 // ==================== ROUTES ====================
 
@@ -86,7 +91,6 @@ app.use("/api/admin", adminRoutes);
 app.use((req, res) => {
   res.status(404).json({
     error: "Not found",
-    path: req.path,
   });
 });
 
@@ -94,6 +98,28 @@ app.use((req, res) => {
 app.use(errorHandler);
 
 // ==================== SOCKET.IO ====================
+
+// Socket.IO connection-level authentication middleware
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token || typeof token !== "string") {
+    // Allow connection but mark as unauthenticated — authenticate event still works as fallback
+    socket.userId = null;
+    socket.userRole = null;
+    return next();
+  }
+  try {
+    const decoded = verifyToken(token);
+    if (decoded) {
+      socket.userId = decoded.id;
+      socket.userRole = decoded.role;
+      socket.userName = decoded.name || decoded.nickname;
+    }
+  } catch (err) {
+    // Allow connection, authentication can happen via event
+  }
+  next();
+});
 
 // Initialize Socket.IO event handlers
 initializeSocketHandlers(io);

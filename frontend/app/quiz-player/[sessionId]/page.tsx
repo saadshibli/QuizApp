@@ -18,6 +18,7 @@ import {
   waitForAuth,
   joinSession as socketJoinSession,
   onQuestionStarted,
+  onQuestionEnded,
   onAnswerResult,
   onLeaderboardUpdate,
   onSessionJoined,
@@ -78,7 +79,10 @@ export default function QuizPlayerPage() {
   const params = useParams();
   const router = useRouter();
   const sessionParam = params?.sessionId as string;
-  const { user, token, _hasHydrated } = useAuthStore();
+  const { user, token, logout, _hasHydrated } = useAuthStore();
+
+  const isGuest = user?.email?.includes("@guest.local") || !user?.email;
+  const exitPath = isGuest ? "/" : "/student/dashboard";
 
   // Resolve session code to numeric ID
   const [sessionId, setSessionIdResolved] = useState("");
@@ -99,6 +103,7 @@ export default function QuizPlayerPage() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const hasSubmittedRef = useRef(false);
   const [answerFeedback, setAnswerFeedback] = useState<any>(null);
   const timerRef = useRef<NodeJS.Timeout>();
   const startTimeRef = useRef<number>(0);
@@ -200,9 +205,15 @@ export default function QuizPlayerPage() {
     return () => clearInterval(interval);
   }, [status]);
 
-  const startTimer = useCallback((duration: number) => {
+  const startTimer = useCallback((duration: number, startedAt?: number) => {
     clearInterval(timerRef.current);
-    const endTime = Date.now() + duration * 1000;
+    // If server provided a startedAt timestamp, subtract elapsed time for sync
+    const elapsed = startedAt
+      ? Math.max(0, (Date.now() - startedAt) / 1000)
+      : 0;
+    const adjustedDuration = Math.max(0, duration - elapsed);
+    const endTime = Date.now() + adjustedDuration * 1000;
+    setTimeRemaining(Math.ceil(adjustedDuration));
     timerRef.current = setInterval(() => {
       const remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
       setTimeRemaining(remaining);
@@ -222,12 +233,13 @@ export default function QuizPlayerPage() {
       setStatus("question");
       setSelectedOption(null);
       setHasSubmitted(false);
+      hasSubmittedRef.current = false;
       setAnswerFeedback(null);
       setResponseTimeMs(0);
-      setTimeRemaining(data.timeLimit);
       startTimeRef.current = Date.now();
       setQuestionNumber((prev) => prev + 1);
-      startTimer(data.timeLimit);
+      // startTimer sets timeRemaining with startedAt-adjusted value
+      startTimer(data.timeLimit, data.startedAt);
     },
     [startTimer],
   );
@@ -277,6 +289,32 @@ export default function QuizPlayerPage() {
           if (theme && theme !== "none") {
             setThemeImage(`/themes/${theme}.png`);
           }
+          // If session is already completed, jump straight to ended state
+          if (sess.status === "Completed") {
+            setStatus("ended");
+            // Load final leaderboard
+            sessionAPI
+              .getLeaderboard(sessionId)
+              .then((lbRes) => {
+                if (!cancelled && lbRes.data) {
+                  setLeaderboard(
+                    (Array.isArray(lbRes.data) ? lbRes.data : []).map(
+                      (entry: any) => ({
+                        rank: entry.rank,
+                        nickname: entry.nickname,
+                        score: entry.total_score ?? entry.score ?? 0,
+                        totalResponseTime:
+                          Number(
+                            entry.total_response_time ??
+                              entry.totalResponseTime,
+                          ) || 0,
+                      }),
+                    ),
+                  );
+                }
+              })
+              .catch(() => {});
+          }
         }
       })
       .catch(() => {});
@@ -310,7 +348,7 @@ export default function QuizPlayerPage() {
   useEffect(() => {
     if (!token && !_hasHydrated) return;
     if (!token) {
-      router.push("/login");
+      router.replace("/login");
       return;
     }
 
@@ -364,6 +402,7 @@ export default function QuizPlayerPage() {
 
     onQuestionStarted((data) => {
       if (!hasShownStartCountdownRef.current) {
+        // First question: show 5s countdown, keep startedAt so timer syncs after countdown
         setPendingQuestion(data);
         setStartCountdown(5);
         setStatus("startCountdown");
@@ -374,9 +413,26 @@ export default function QuizPlayerPage() {
       beginQuestion(data);
     });
 
+    onQuestionEnded(() => {
+      // Teacher's timer hit 0
+      setStatus((prev) => {
+        if (prev === "question") {
+          // Student is still on the question screen
+          // If they submitted, just move to answerReview (timer keeps ticking naturally)
+          // If they didn't submit, force timer to 0 and show review (time's up)
+          if (!hasSubmittedRef.current) {
+            clearInterval(timerRef.current);
+            setTimeRemaining(0);
+          }
+          return "answerReview";
+        }
+        // Already on answerReview — let the timer keep running naturally
+        return prev;
+      });
+    });
+
     onAnswerResult((data) => {
       setAnswerFeedback(data);
-      clearInterval(timerRef.current);
       setStreak((prev) => (data.isCorrect ? prev + 1 : 0));
       if (data.pointsAwarded) {
         setTotalScore((prev) => prev + data.pointsAwarded);
@@ -395,6 +451,17 @@ export default function QuizPlayerPage() {
     });
 
     onQuizEnded((data) => {
+      if (data.finalLeaderboard && Array.isArray(data.finalLeaderboard)) {
+        setLeaderboard(
+          data.finalLeaderboard.map((entry: any) => ({
+            rank: entry.rank,
+            nickname: entry.nickname,
+            score: entry.total_score ?? entry.score ?? 0,
+            totalResponseTime:
+              Number(entry.total_response_time ?? entry.totalResponseTime) || 0,
+          })),
+        );
+      }
       setStatus("ended");
     });
 
@@ -404,6 +471,7 @@ export default function QuizPlayerPage() {
       offEvent("SessionJoined");
       offEvent("ParticipantJoined");
       offEvent("QuestionStarted");
+      offEvent("QuestionEnded");
       offEvent("AnswerResult");
       offEvent("LeaderboardUpdate");
       offEvent("QuizEnded");
@@ -421,6 +489,7 @@ export default function QuizPlayerPage() {
     if (!hasSubmitted && currentQuestion && timeRemaining > 0) {
       setSelectedOption(optionId);
       setHasSubmitted(true);
+      hasSubmittedRef.current = true;
       const responseTime = Date.now() - startTimeRef.current;
       setResponseTimeMs(responseTime);
       submitAnswer(currentQuestion.id, optionId, responseTime);
@@ -552,7 +621,7 @@ export default function QuizPlayerPage() {
             This session doesn&apos;t exist, has ended, or the code is invalid.
           </p>
           <button
-            onClick={() => router.push("/join-quiz")}
+            onClick={() => router.replace("/join-quiz")}
             className="btn-cartoon btn-cartoon-pink px-6 py-2 text-sm"
           >
             Join a Quiz
@@ -624,9 +693,13 @@ export default function QuizPlayerPage() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => {
-                    disconnectSocket();
-                    resetSession();
-                    router.push("/student/dashboard");
+                    if (isGuest) {
+                      logout();
+                    } else {
+                      disconnectSocket();
+                      resetSession();
+                    }
+                    router.replace(exitPath);
                   }}
                   className="btn-cartoon btn-cartoon-outline px-3 py-1.5 text-xs rounded-xl inline-flex items-center gap-1.5"
                 >
@@ -1730,6 +1803,38 @@ export default function QuizPlayerPage() {
                       </motion.div>
                     )}
 
+                    {/* Countdown timer — time remaining for current question */}
+                    {timeRemaining > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="flex flex-col items-center mb-3"
+                      >
+                        <div
+                          className="relative w-16 h-16 rounded-full flex items-center justify-center"
+                          style={{
+                            background:
+                              "linear-gradient(135deg, rgba(139,92,246,0.15), rgba(34,211,238,0.1))",
+                            border: "2px solid rgba(139,92,246,0.35)",
+                            boxShadow:
+                              "0 0 20px rgba(139,92,246,0.2), inset 0 0 12px rgba(0,0,0,0.2)",
+                          }}
+                        >
+                          <motion.span
+                            key={timeRemaining}
+                            initial={{ scale: 1.3, opacity: 0.6 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className="text-xl font-black text-purple-200 font-mono"
+                          >
+                            {timeRemaining}
+                          </motion.span>
+                        </div>
+                        <span className="text-[10px] uppercase tracking-widest text-purple-300/60 font-bold mt-1.5">
+                          Time left for others
+                        </span>
+                      </motion.div>
+                    )}
+
                     <div className="flex items-center justify-center gap-2 text-purple-200/90">
                       <div className="waiting-dots">
                         <span></span>
@@ -2053,6 +2158,25 @@ export default function QuizPlayerPage() {
                                   {data.score || 0} pts
                                 </motion.span>
 
+                                {/* Response time */}
+                                {data.totalResponseTime != null &&
+                                  data.totalResponseTime > 0 && (
+                                    <motion.span
+                                      className="text-[10px] md:text-xs font-bold text-white/40 mt-0.5 flex items-center gap-1"
+                                      initial={{ opacity: 0 }}
+                                      animate={{ opacity: 1 }}
+                                      transition={{
+                                        delay: entryDelay + 0.5,
+                                      }}
+                                    >
+                                      <Clock className="w-3 h-3" />
+                                      {(data.totalResponseTime / 1000).toFixed(
+                                        1,
+                                      )}
+                                      s
+                                    </motion.span>
+                                  )}
+
                                 <motion.div
                                   initial={{ scaleY: 0 }}
                                   animate={{ scaleY: 1 }}
@@ -2151,9 +2275,21 @@ export default function QuizPlayerPage() {
                                       {isMe ? " (You)" : ""}
                                     </span>
                                   </div>
-                                  <span className="font-mono font-bold text-xs text-white/40">
-                                    {entry.score || 0}
-                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono font-bold text-xs text-white/40">
+                                      {entry.score || 0}
+                                    </span>
+                                    {entry.totalResponseTime != null &&
+                                      entry.totalResponseTime > 0 && (
+                                        <span className="text-[10px] font-bold text-white/30 flex items-center gap-0.5">
+                                          <Clock className="w-2.5 h-2.5" />
+                                          {(
+                                            entry.totalResponseTime / 1000
+                                          ).toFixed(1)}
+                                          s
+                                        </span>
+                                      )}
+                                  </div>
                                 </motion.div>
                               );
                             })}
@@ -2170,13 +2306,17 @@ export default function QuizPlayerPage() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 1.3 }}
                       onClick={() => {
-                        disconnectSocket();
-                        resetSession();
-                        router.push("/student/dashboard");
+                        if (isGuest) {
+                          logout();
+                        } else {
+                          disconnectSocket();
+                          resetSession();
+                        }
+                        router.replace(exitPath);
                       }}
                       className="btn-cartoon btn-cartoon-pink px-8 py-4 rounded-2xl font-bold text-lg"
                     >
-                      Return to Dashboard
+                      {isGuest ? "Back to Home" : "Return to Dashboard"}
                     </motion.button>
                   </div>
                 </motion.div>

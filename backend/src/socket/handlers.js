@@ -13,6 +13,18 @@ const connectedUsers = new Map();
 const activeSessions = new Map();
 
 /**
+ * Sanitize user input by HTML-encoding special chars
+ */
+function sanitizeString(str) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
+
+/**
  * Verify the socket user is the teacher who owns the given session.
  * Looks up teacher_id via the quiz (sessions table has no teacher_id column).
  */
@@ -86,6 +98,21 @@ function initializeSocketHandlers(io) {
           return;
         }
 
+        // Only teachers can host sessions
+        if (socket.userRole !== "teacher") {
+          socket.emit("error", { error: "Only teachers can host sessions" });
+          return;
+        }
+
+        // Verify this teacher owns the session
+        const isOwner = await verifySessionOwner(socket, sessionId);
+        if (!isOwner) {
+          socket.emit("error", {
+            error: "You can only host your own sessions",
+          });
+          return;
+        }
+
         // Join Socket.IO room for this session
         socket.join(`session:${sessionId}`);
         socket.sessionId = parseInt(sessionId);
@@ -137,6 +164,9 @@ function initializeSocketHandlers(io) {
           return;
         }
 
+        // Sanitize nickname
+        const sanitizedNickname = sanitizeString(nickname.trim()).slice(0, 50);
+
         // Get session details
         const session = await SessionRepository.getSessionByCode(sessionCode);
 
@@ -154,7 +184,7 @@ function initializeSocketHandlers(io) {
         const participant = await SessionService.joinSession(
           sessionCode,
           socket.userId,
-          nickname || socket.userName,
+          sanitizedNickname || socket.userName,
         );
 
         // Store session info on socket
@@ -274,6 +304,7 @@ function initializeSocketHandlers(io) {
             rank: entry.rank,
             nickname: entry.nickname,
             score: entry.total_score,
+            totalResponseTime: Number(entry.total_response_time) || 0,
           })),
         });
 
@@ -330,6 +361,7 @@ function initializeSocketHandlers(io) {
           })),
           timeLimit: question.time_limit,
           points: question.points,
+          startedAt: Date.now(),
         });
 
         console.log(`[Socket] Question started in session ${sessionId}`);

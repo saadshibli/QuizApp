@@ -52,14 +52,14 @@ function JoinQuizContent() {
           {
             id: response.data.guestUserId,
             name: nickname || "Player",
-            email: "",
+            email: `guest_${response.data.guestUserId}@guest.local`,
             role: "student",
           },
           response.data.token,
         );
       }
 
-      router.push(
+      router.replace(
         `/quiz-player/${response.data.session_code || sessionCode.toUpperCase()}`,
       );
     } catch (err: any) {

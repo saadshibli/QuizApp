@@ -69,7 +69,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!isMounted) return;
     if (!user || user.role !== "admin") {
-      router.push("/login");
+      router.replace("/login");
       return;
     }
     loadData();
@@ -98,7 +98,7 @@ export default function AdminDashboard() {
 
   const handleLogout = () => {
     logout();
-    router.push("/login");
+    router.replace("/login");
   };
 
   if (!isMounted) return null;

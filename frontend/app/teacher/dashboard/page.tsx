@@ -55,7 +55,7 @@ export default function TeacherDashboard() {
   useEffect(() => {
     if (!isMounted) return;
     if (!user || user.role !== "teacher") {
-      router.push("/login");
+      router.replace("/login");
       return;
     }
     loadQuizzes();
@@ -93,7 +93,7 @@ export default function TeacherDashboard() {
 
   const handleLogout = () => {
     logout();
-    router.push("/login");
+    router.replace("/login");
   };
 
   // Helper: Get paginated quizzes

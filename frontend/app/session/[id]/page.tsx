@@ -25,6 +25,7 @@ import {
   Gamepad2,
   Sparkles,
   Trophy,
+  Clock,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -46,7 +47,7 @@ export default function HostSessionPage() {
 
   const urlParam = params.id as string;
 
-  const { token, _hasHydrated } = useAuthStore();
+  const { token, user, _hasHydrated } = useAuthStore();
   const [sessionId, setSessionId] = useState<string>("");
   const [sessionCode, setSessionCode] = useState<string>("");
   const [notFound, setNotFound] = useState(false);
@@ -61,6 +62,15 @@ export default function HostSessionPage() {
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [copied, setCopied] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+
+  // Normalize leaderboard entries to ensure totalResponseTime is always a number
+  const normalizeLeaderboard = (entries: any[]) =>
+    entries.map((e: any) => ({
+      ...e,
+      totalResponseTime:
+        Number(e.totalResponseTime ?? e.total_response_time) || 0,
+      score: e.score ?? e.total_score ?? 0,
+    }));
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [answerStats, setAnswerStats] = useState<Record<number, number>>({});
   const [totalAnswers, setTotalAnswers] = useState(0);
@@ -69,6 +79,7 @@ export default function HostSessionPage() {
   const didAutoAdvanceRef = useRef(false);
   const startupCountdownRef = useRef<NodeJS.Timeout | null>(null);
   const hasShownInitialQuestionCountdownRef = useRef(false);
+  const questionStartedAtRef = useRef<number>(0);
 
   const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
   const joinUrl =
@@ -116,7 +127,11 @@ export default function HostSessionPage() {
   useEffect(() => {
     if (!token && !_hasHydrated) return; // wait for hydration only if no token yet
     if (!token) {
-      router.push("/login");
+      router.replace("/login");
+      return;
+    }
+    if (user?.role !== "teacher" && user?.role !== "admin") {
+      router.replace("/student/dashboard");
       return;
     }
 
@@ -172,6 +187,20 @@ export default function HostSessionPage() {
         const theme = res.data?.session?.quiz_theme;
         if (theme && theme !== "none") {
           setThemeImage(`/themes/${theme}.png`);
+        }
+
+        // If session is already completed, load leaderboard immediately
+        const status = res.data?.session?.status;
+        if (status === "Completed") {
+          setSessionState("finished");
+          sessionAPI
+            .getLeaderboard(numericId)
+            .then((lbRes) => {
+              if (!cancelled) {
+                setLeaderboard(normalizeLeaderboard(lbRes.data || []));
+              }
+            })
+            .catch(() => {});
         }
       })
       .catch(() => {
@@ -270,24 +299,37 @@ export default function HostSessionPage() {
         points: data.points || 100,
         time_limit: data.timeLimit || 30,
       });
-      setTimeRemaining(data.timeLimit || 30);
+      // Store server startedAt for accurate timer sync
+      questionStartedAtRef.current = data.startedAt || Date.now();
+      const elapsed = Math.max(
+        0,
+        (Date.now() - questionStartedAtRef.current) / 1000,
+      );
       if (!hasShownInitialQuestionCountdownRef.current) {
         hasShownInitialQuestionCountdownRef.current = true;
+        // First question: show startup countdown, timer will sync via startedAt
+        setTimeRemaining(data.timeLimit || 30);
         setStartupCountdown(5);
         setSessionState("startCountdown");
       } else {
+        // Subsequent questions: subtract network delay
+        const adjustedTime = Math.max(
+          1,
+          Math.ceil((data.timeLimit || 30) - elapsed),
+        );
+        setTimeRemaining(adjustedTime);
         setSessionState("active");
       }
     });
 
     socket.on("LeaderboardUpdate", (data: any) => {
-      setLeaderboard(data.leaderboard || []);
+      setLeaderboard(normalizeLeaderboard(data.leaderboard || []));
     });
 
     socket.on("QuizEnded", (data: any) => {
       setSessionState("finished");
       if (data.finalLeaderboard) {
-        setLeaderboard(data.finalLeaderboard);
+        setLeaderboard(normalizeLeaderboard(data.finalLeaderboard));
       }
       toast("Session ended!", { icon: "🏁" });
     });
@@ -360,10 +402,26 @@ export default function HostSessionPage() {
   }, [sessionState, startupCountdown]);
 
   // Timer countdown (only runs during "active" state)
+  // Uses a ref-based end time computed once per question to prevent drift.
   const timerEndTimeRef = useRef<number>(0);
+  const timerQuestionRef = useRef<number | null>(null);
   useEffect(() => {
-    if (sessionState !== "active" || timeRemaining <= 0) return;
-    timerEndTimeRef.current = Date.now() + timeRemaining * 1000;
+    if (sessionState !== "active") {
+      timerQuestionRef.current = null;
+      return;
+    }
+
+    // Only compute end time once per question (prevents drift from re-runs)
+    const qId = currentQuestion?.id;
+    if (timerQuestionRef.current === qId) return;
+    timerQuestionRef.current = qId;
+
+    // Use server startedAt to compute end time so timer stays synced
+    // (accounts for startup countdown elapsed time on first question)
+    const timeLimit = currentQuestion?.time_limit || 30;
+    timerEndTimeRef.current = questionStartedAtRef.current
+      ? questionStartedAtRef.current + timeLimit * 1000
+      : Date.now() + timeRemaining * 1000;
     const timer = setInterval(() => {
       const remaining = Math.max(
         0,
@@ -386,7 +444,8 @@ export default function HostSessionPage() {
       }
     }, 250);
     return () => clearInterval(timer);
-  }, [sessionState, timeRemaining, currentQuestion, sessionId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionState, currentQuestion?.id, sessionId]);
 
   const handleStartSession = async () => {
     if (!sessionId) return;
@@ -454,7 +513,7 @@ export default function HostSessionPage() {
         setSessionState("finished");
         // Fetch leaderboard
         const lbRes = await sessionAPI.getLeaderboard(sessionId);
-        setLeaderboard(lbRes.data || []);
+        setLeaderboard(normalizeLeaderboard(lbRes.data || []));
 
         const socket = getSocket();
         if (socket) {
@@ -487,6 +546,8 @@ export default function HostSessionPage() {
               question: currentQ,
             });
           }
+          // Don't set sessionState or timeRemaining here — let the socket echo
+          // (QuestionStarted handler) do it so teacher and students are in sync.
           setCurrentQuestion({
             text: currentQ.question_text,
             options: currentQ.options?.map((o: any) => ({
@@ -498,15 +559,13 @@ export default function HostSessionPage() {
             points: currentQ.points || 100,
             time_limit: currentQ.time_limit || 30,
           });
-          setTimeRemaining(currentQ.time_limit || 30);
           setCurrentQuestionIndex((prev) => prev + 1);
-          setSessionState("active");
         }
       }
 
       // Update leaderboard
       const lbRes = await sessionAPI.getLeaderboard(sessionId);
-      setLeaderboard(lbRes.data || []);
+      setLeaderboard(normalizeLeaderboard(lbRes.data || []));
     } catch (err: any) {
       toast.error(
         err.response?.data?.message || "Failed to load next question",
@@ -543,7 +602,7 @@ export default function HostSessionPage() {
   const handleEndSession = async () => {
     try {
       const lbRes = await sessionAPI.getLeaderboard(sessionId);
-      setLeaderboard(lbRes.data || []);
+      setLeaderboard(normalizeLeaderboard(lbRes.data || []));
 
       const socket = getSocket();
       if (socket) {
@@ -581,7 +640,7 @@ export default function HostSessionPage() {
             This session doesn&apos;t exist or has already ended.
           </p>
           <button
-            onClick={() => router.push("/teacher/dashboard")}
+            onClick={() => router.replace("/teacher/dashboard")}
             className="btn-cartoon btn-cartoon-pink px-6 py-2 text-sm"
           >
             Back to Dashboard
@@ -1417,14 +1476,22 @@ export default function HostSessionPage() {
                           </div>
                         </div>
 
-                        <div className="font-mono font-black bg-black/30 px-2.5 py-1 rounded-lg border border-white/10 text-amber-200 min-w-[3rem] text-center text-sm shadow-inner">
-                          <motion.span
-                            key={lb.score || lb.total_score}
-                            initial={{ scale: 1.5, color: "#facc15" }}
-                            animate={{ scale: 1, color: "#fcd34d" }}
-                          >
-                            {lb.score || lb.total_score || 0}
-                          </motion.span>
+                        <div className="flex items-center gap-2">
+                          {lb.totalResponseTime > 0 && (
+                            <span className="text-[11px] font-medium text-purple-300/60 flex items-center gap-0.5">
+                              <Clock className="w-3 h-3" />
+                              {(lb.totalResponseTime / 1000).toFixed(1)}s
+                            </span>
+                          )}
+                          <div className="font-mono font-black bg-black/30 px-2.5 py-1 rounded-lg border border-white/10 text-amber-200 min-w-[3rem] text-center text-sm shadow-inner">
+                            <motion.span
+                              key={lb.score}
+                              initial={{ scale: 1.5, color: "#facc15" }}
+                              animate={{ scale: 1, color: "#fcd34d" }}
+                            >
+                              {lb.score}
+                            </motion.span>
+                          </div>
                         </div>
                       </motion.div>
                     ))
@@ -1683,8 +1750,21 @@ export default function HostSessionPage() {
                       animate={{ scale: [0, 1.2, 1] }}
                       transition={{ delay: entryDelay + 0.3, duration: 0.35 }}
                     >
-                      {data.score || data.total_score || 0} pts
+                      {data.score} pts
                     </motion.span>
+
+                    {/* Response time */}
+                    {data.totalResponseTime > 0 && (
+                      <motion.span
+                        className="text-xs md:text-sm font-bold text-purple-300/80 mt-0.5 flex items-center gap-1"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: entryDelay + 0.5 }}
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                        {(data.totalResponseTime / 1000).toFixed(1)}s
+                      </motion.span>
+                    )}
 
                     {/* 3D Podium block */}
                     <motion.div
@@ -1781,9 +1861,17 @@ export default function HostSessionPage() {
                       {lb.nickname || lb.username}
                     </span>
                   </div>
-                  <span className="font-mono font-bold text-xs text-white/40">
-                    {lb.score || lb.total_score || 0}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-bold text-xs text-white/40">
+                      {lb.score}
+                    </span>
+                    {lb.totalResponseTime > 0 && (
+                      <span className="text-[11px] font-bold text-purple-300/70 flex items-center gap-0.5">
+                        <Clock className="w-3 h-3" />
+                        {(lb.totalResponseTime / 1000).toFixed(1)}s
+                      </span>
+                    )}
+                  </div>
                 </motion.div>
               ))}
             </div>
@@ -1798,7 +1886,7 @@ export default function HostSessionPage() {
           transition={{ delay: 1.3 }}
           whileHover={{ scale: 1.04, y: -2 }}
           whileTap={{ scale: 0.96 }}
-          onClick={() => router.push("/teacher/dashboard")}
+          onClick={() => router.replace("/teacher/dashboard")}
           className="btn-cartoon btn-cartoon-pink px-8 py-4 rounded-2xl font-bold text-lg"
         >
           Return to Dashboard

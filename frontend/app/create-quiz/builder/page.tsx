@@ -70,7 +70,7 @@ function BuilderPageContent() {
   useEffect(() => {
     if (!_hasHydrated) return;
     if (!user || (user.role !== "teacher" && user.role !== "admin")) {
-      router.push("/login");
+      router.replace("/login");
     }
   }, [user, _hasHydrated, router]);
 
@@ -131,7 +131,7 @@ function BuilderPageContent() {
       } catch (err) {
         console.error(err);
         toast.error("Failed to load quiz");
-        router.push("/teacher/dashboard");
+        router.replace("/teacher/dashboard");
       }
     },
     [router],
@@ -146,7 +146,7 @@ function BuilderPageContent() {
     } else {
       const savedSetup = window.localStorage.getItem("quizSetup");
       if (!savedSetup) {
-        router.push("/create-quiz");
+        router.replace("/create-quiz");
         return;
       }
       try {
@@ -162,7 +162,7 @@ function BuilderPageContent() {
           },
         ]);
       } catch (err) {
-        router.push("/create-quiz");
+        router.replace("/create-quiz");
       }
     }
   }, [router, quizIdParam, loadExistingQuiz]);

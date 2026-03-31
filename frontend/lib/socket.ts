@@ -8,6 +8,16 @@ import io, { Socket } from "socket.io-client";
 const SOCKET_URL =
   process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5000";
 
+if (
+  !process.env.NEXT_PUBLIC_SOCKET_URL &&
+  typeof window !== "undefined" &&
+  window.location.protocol === "https:"
+) {
+  console.warn(
+    "NEXT_PUBLIC_SOCKET_URL not set — WebSocket may fail in production",
+  );
+}
+
 let socket: Socket | null = null;
 let currentToken: string | null = null;
 let isAuthenticated = false;

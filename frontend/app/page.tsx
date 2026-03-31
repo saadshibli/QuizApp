@@ -251,9 +251,9 @@ export default function Home() {
 
   useEffect(() => {
     if (user) {
-      if (user.role === "admin") router.push("/admin/dashboard");
-      else if (user.role === "teacher") router.push("/teacher/dashboard");
-      else router.push("/student/dashboard");
+      if (user.role === "admin") router.replace("/admin/dashboard");
+      else if (user.role === "teacher") router.replace("/teacher/dashboard");
+      else router.replace("/student/dashboard");
     }
   }, [user, router]);
 

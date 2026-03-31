@@ -64,11 +64,11 @@ export default function RegisterPage() {
       login(user, token);
 
       if (user.role === "admin") {
-        router.push("/admin/dashboard");
+        router.replace("/admin/dashboard");
       } else if (user.role === "teacher") {
-        router.push("/teacher/dashboard");
+        router.replace("/teacher/dashboard");
       } else {
-        router.push("/student/dashboard");
+        router.replace("/student/dashboard");
       }
     } catch (err: any) {
       setError(err.response?.data?.error || "Registration failed");

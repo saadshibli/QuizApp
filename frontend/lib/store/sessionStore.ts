@@ -20,6 +20,7 @@ export interface LeaderboardEntry {
   rank: number;
   nickname: string;
   score: number;
+  totalResponseTime?: number;
 }
 
 interface SessionStore {

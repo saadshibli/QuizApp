@@ -8,6 +8,16 @@ import { useAuthStore } from "./store/authStore";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
+if (
+  !process.env.NEXT_PUBLIC_API_URL &&
+  typeof window !== "undefined" &&
+  window.location.protocol === "https:"
+) {
+  console.warn(
+    "NEXT_PUBLIC_API_URL not set — API calls may fail in production",
+  );
+}
+
 // ==================== Types ====================
 
 export interface QuizOption {

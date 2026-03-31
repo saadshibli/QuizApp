@@ -5,6 +5,8 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { disconnectSocket } from "@/lib/socket";
+import { useSessionStore } from "@/lib/store/sessionStore";
 
 interface User {
   id: number;
@@ -46,6 +48,8 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       logout: () => {
+        disconnectSocket();
+        useSessionStore.getState().resetSession();
         set({ user: null, token: null });
         document.cookie = "token=; Max-Age=0; path=/; SameSite=Strict";
       },
