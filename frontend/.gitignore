@@ -11,4 +11,4 @@ build
 *.swp
 *.swo
 *~
-.md
+tsconfig.tsbuildinfo

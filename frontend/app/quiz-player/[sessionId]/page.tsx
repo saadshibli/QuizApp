@@ -249,7 +249,8 @@ export default function QuizPlayerPage() {
     if (status !== "startCountdown") return;
 
     if (startCountdown <= 0 && pendingQuestion) {
-      beginQuestion(pendingQuestion);
+      // Reset startedAt to now — the 5s countdown already elapsed, timer should start fresh
+      beginQuestion({ ...pendingQuestion, startedAt: Date.now() });
       setPendingQuestion(null);
       return;
     }

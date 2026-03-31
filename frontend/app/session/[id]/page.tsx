@@ -388,6 +388,8 @@ export default function HostSessionPage() {
       setStartupCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(startupCountdownRef.current!);
+          // Reset startedAt to now — countdown is over, question timer starts fresh
+          questionStartedAtRef.current = Date.now();
           setSessionState("active");
           return 0;
         }
