@@ -98,14 +98,14 @@ export default function QuizPlayerPage() {
   } = useSessionStore();
 
   const [status, setStatus] = useState<
-    "lobbyWaiting" | "startCountdown" | "question" | "answerReview" | "ended"
+    "lobbyWaiting" | "startCountdown" | "question" | "leaderboard" | "ended"
   >("lobbyWaiting");
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const hasSubmittedRef = useRef(false);
   const [answerFeedback, setAnswerFeedback] = useState<any>(null);
-  const timerRef = useRef<NodeJS.Timeout>();
+  const timerRef = useRef<number>();
   const startTimeRef = useRef<number>(0);
   const [currentTip, setCurrentTip] = useState(0);
   const [totalScore, setTotalScore] = useState(0);
@@ -118,6 +118,12 @@ export default function QuizPlayerPage() {
   const [pendingQuestion, setPendingQuestion] = useState<any>(null);
   const hasShownStartCountdownRef = useRef(false);
   const [notFound, setNotFound] = useState(false);
+  // Server time offset: serverTime - clientTime (positive = server ahead)
+  const serverOffsetRef = useRef(0);
+  // Server timestamp of when the current question timer starts
+  const questionStartTimeRef = useRef(0);
+  // Current question duration in seconds
+  const questionDurationRef = useRef(30);
 
   // Helper to create a URL-friendly slug from quiz title
   const slugify = (text: string) =>
@@ -205,68 +211,87 @@ export default function QuizPlayerPage() {
     return () => clearInterval(interval);
   }, [status]);
 
-  const startTimer = useCallback((duration: number, startedAt?: number) => {
-    clearInterval(timerRef.current);
-    // If server provided a startedAt timestamp, subtract elapsed time for sync
-    const elapsed = startedAt
-      ? Math.max(0, (Date.now() - startedAt) / 1000)
-      : 0;
-    const adjustedDuration = Math.max(0, duration - elapsed);
-    const endTime = Date.now() + adjustedDuration * 1000;
-    setTimeRemaining(Math.ceil(adjustedDuration));
-    timerRef.current = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
-      setTimeRemaining(remaining);
-      if (remaining <= 0) clearInterval(timerRef.current);
-    }, 250);
+  const beginQuestion = useCallback((data: any) => {
+    setCurrentQuestion({
+      id: data.questionId,
+      question_text: data.questionText,
+      time_limit: data.timeLimit,
+      points: data.points,
+      options: data.options,
+    });
+    questionStartTimeRef.current = data.questionStartTime;
+    questionDurationRef.current = data.timeLimit || 30;
+    setStatus("question");
+    setSelectedOption(null);
+    setHasSubmitted(false);
+    hasSubmittedRef.current = false;
+    setAnswerFeedback(null);
+    setResponseTimeMs(0);
+    startTimeRef.current = Date.now();
+    setQuestionNumber((prev) => prev + 1);
+    // timeRemaining will be computed by the single timer loop
   }, []);
 
-  const beginQuestion = useCallback(
-    (data: any) => {
-      setCurrentQuestion({
-        id: data.questionId,
-        question_text: data.questionText,
-        time_limit: data.timeLimit,
-        points: data.points,
-        options: data.options,
-      });
-      setStatus("question");
-      setSelectedOption(null);
-      setHasSubmitted(false);
-      hasSubmittedRef.current = false;
-      setAnswerFeedback(null);
-      setResponseTimeMs(0);
-      startTimeRef.current = Date.now();
-      setQuestionNumber((prev) => prev + 1);
-      // startTimer sets timeRemaining with startedAt-adjusted value
-      startTimer(data.timeLimit, data.startedAt);
-    },
-    [startTimer],
-  );
-
-  // Start countdown only when host has started the quiz
+  // Start countdown: compute remaining from server questionStartTime
   useEffect(() => {
     if (status !== "startCountdown") return;
+    // The single timer loop handles the countdown computation.
+    // When timeRemaining (countdown to questionStartTime) hits 0, transition to question.
+  }, [status]);
 
-    if (startCountdown <= 0 && pendingQuestion) {
-      // Reset startedAt to now — the 5s countdown already elapsed, timer should start fresh
-      beginQuestion({ ...pendingQuestion, startedAt: Date.now() });
-      setPendingQuestion(null);
+  // Single timer loop — computes all countdowns from server timestamps
+  useEffect(() => {
+    if (
+      status !== "startCountdown" &&
+      status !== "question" &&
+      status !== "leaderboard"
+    )
       return;
-    }
 
-    const timeout = setTimeout(() => {
-      setStartCountdown((prev) => prev - 1);
-      if (
-        typeof navigator !== "undefined" &&
-        typeof navigator.vibrate === "function"
-      ) {
-        navigator.vibrate(12);
+    const tick = () => {
+      const adjustedNow = Date.now() + serverOffsetRef.current;
+
+      if (status === "startCountdown") {
+        // Counting down to questionStartTime
+        const remaining = Math.max(
+          0,
+          Math.ceil((questionStartTimeRef.current - adjustedNow) / 1000),
+        );
+        setStartCountdown(remaining);
+        if (remaining <= 0 && pendingQuestion) {
+          // Transition to question — timer starts from questionStartTime
+          startTimeRef.current = Date.now();
+          beginQuestion(pendingQuestion);
+          setPendingQuestion(null);
+        }
+      } else if (status === "question") {
+        // Counting down the question timer
+        const deadline =
+          questionStartTimeRef.current + questionDurationRef.current * 1000;
+        const remaining = Math.max(
+          0,
+          Math.ceil((deadline - adjustedNow) / 1000),
+        );
+        setTimeRemaining(remaining);
+      } else if (status === "leaderboard") {
+        // If a next question has been scheduled (questionStartTime set for future),
+        // count down to it. The QuestionStarted handler will trigger beginQuestion.
+        if (questionStartTimeRef.current > adjustedNow) {
+          const remaining = Math.max(
+            0,
+            Math.ceil((questionStartTimeRef.current - adjustedNow) / 1000),
+          );
+          setTimeRemaining(remaining);
+        } else {
+          setTimeRemaining(0);
+        }
       }
-    }, 1000);
+    };
 
-    return () => clearTimeout(timeout);
-  }, [status, startCountdown, pendingQuestion, beginQuestion]);
+    tick(); // immediate first tick
+    const interval = setInterval(tick, 250);
+    return () => clearInterval(interval);
+  }, [status, pendingQuestion, beginQuestion]);
 
   // Immediate API fetch for session data — independent of socket auth
   const sessionCodeRef = useRef<string | null>(null);
@@ -392,6 +417,13 @@ export default function QuizPlayerPage() {
     };
     socket.on("authenticated", onReAuthenticated);
 
+    // Capture server time offset on connect
+    socket.on("ServerTime", (data: any) => {
+      if (data?.serverTime) {
+        serverOffsetRef.current = data.serverTime - Date.now();
+      }
+    });
+
     onSessionJoined(() => {
       setStatus("lobbyWaiting");
       hasShownStartCountdownRef.current = false;
@@ -402,34 +434,33 @@ export default function QuizPlayerPage() {
     });
 
     onQuestionStarted((data) => {
+      // Store server-synced start time
+      questionStartTimeRef.current = data.questionStartTime;
+      questionDurationRef.current = data.timeLimit || 30;
+
       if (!hasShownStartCountdownRef.current) {
-        // First question: show 5s countdown, keep startedAt so timer syncs after countdown
+        // First question: show startup countdown to questionStartTime
         setPendingQuestion(data);
-        setStartCountdown(5);
+        const adjustedNow = Date.now() + serverOffsetRef.current;
+        const remaining = Math.max(
+          0,
+          Math.ceil((data.questionStartTime - adjustedNow) / 1000),
+        );
+        setStartCountdown(remaining);
         setStatus("startCountdown");
         hasShownStartCountdownRef.current = true;
         return;
       }
 
+      // Subsequent questions: switch to question immediately
       beginQuestion(data);
     });
 
     onQuestionEnded(() => {
-      // Teacher's timer hit 0
-      setStatus((prev) => {
-        if (prev === "question") {
-          // Student is still on the question screen
-          // If they submitted, just move to answerReview (timer keeps ticking naturally)
-          // If they didn't submit, force timer to 0 and show review (time's up)
-          if (!hasSubmittedRef.current) {
-            clearInterval(timerRef.current);
-            setTimeRemaining(0);
-          }
-          return "answerReview";
-        }
-        // Already on answerReview — let the timer keep running naturally
-        return prev;
-      });
+      // Instantly switch to leaderboard — no reveal countdown
+      clearInterval(timerRef.current);
+      setTimeRemaining(0);
+      setStatus("leaderboard");
     });
 
     onAnswerResult((data) => {
@@ -438,13 +469,7 @@ export default function QuizPlayerPage() {
       if (data.pointsAwarded) {
         setTotalScore((prev) => prev + data.pointsAwarded);
       }
-      // Delay transition so inline feedback is visible on the answer cards
-      setTimeout(
-        () => {
-          setStatus("answerReview");
-        },
-        data.isCorrect ? 2200 : 1400,
-      );
+      // Answer feedback stays inline on question cards — no status transition
     });
 
     onLeaderboardUpdate((data) => {
@@ -469,6 +494,7 @@ export default function QuizPlayerPage() {
     return () => {
       clearInterval(timerRef.current);
       socket.off("authenticated", onReAuthenticated);
+      socket.off("ServerTime");
       offEvent("SessionJoined");
       offEvent("ParticipantJoined");
       offEvent("QuestionStarted");
@@ -648,7 +674,7 @@ export default function QuizPlayerPage() {
           />
         )}
         <div
-          className={`absolute inset-0 z-10 ${status === "question" || status === "startCountdown" ? "bg-slate-950/78" : status === "answerReview" ? "bg-slate-950/80 backdrop-blur-sm" : status === "ended" ? "bg-slate-950/70" : "bg-slate-900/58"}`}
+          className={`absolute inset-0 z-10 ${status === "question" || status === "startCountdown" ? "bg-slate-950/78" : status === "leaderboard" ? "bg-slate-950/80 backdrop-blur-sm" : status === "ended" ? "bg-slate-950/70" : "bg-slate-900/58"}`}
         />
         {status === "startCountdown" && (
           <div className="absolute inset-0 z-10 bg-gradient-to-b from-black/55 via-black/35 to-black/60" />
@@ -660,7 +686,7 @@ export default function QuizPlayerPage() {
 
       <div className="relative z-10 flex flex-col min-h-screen">
         {/* Header */}
-        {status !== "question" && status !== "answerReview" && (
+        {status !== "question" && status !== "leaderboard" && (
           <div className="px-3 pt-3">
             <motion.div
               initial={{ opacity: 0, y: -20 }}
@@ -1511,8 +1537,8 @@ export default function QuizPlayerPage() {
             </motion.div>
           )}
 
-          {status === "answerReview" &&
-            answerFeedback &&
+          {/* ═══ Leaderboard (between questions) ═══ */}
+          {status === "leaderboard" &&
             (() => {
               const responseSeconds = responseTimeMs / 1000;
               const timeLimit = currentQuestion?.time_limit || 30;
@@ -1583,115 +1609,136 @@ export default function QuizPlayerPage() {
                         "0 16px 64px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
                     }}
                   >
-                    {/* Result header */}
-                    <motion.div
-                      initial={{ scale: 0, rotate: -180 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      transition={{
-                        type: "spring",
-                        stiffness: 200,
-                        damping: 15,
-                      }}
-                      className="text-center mb-4"
-                    >
-                      {answerFeedback.isCorrect ? (
-                        <motion.div
-                          className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center mb-2"
-                          animate={{
-                            boxShadow: [
-                              "0 0 30px rgba(34,197,94,0.3)",
-                              "0 0 50px rgba(34,197,94,0.55)",
-                              "0 0 30px rgba(34,197,94,0.3)",
-                            ],
-                          }}
-                          transition={{ duration: 1.5, repeat: Infinity }}
-                        >
-                          <CheckCircle
-                            className="w-9 h-9 text-white"
-                            strokeWidth={2.5}
-                          />
-                        </motion.div>
-                      ) : (
-                        <motion.div
-                          className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-red-400 to-pink-600 flex items-center justify-center mb-2"
-                          style={{ boxShadow: "0 0 30px rgba(239,68,68,0.3)" }}
-                          animate={{ scale: [1, 1.05, 1] }}
-                          transition={{ duration: 0.6 }}
-                        >
-                          <XCircle
-                            className="w-9 h-9 text-white"
-                            strokeWidth={2.5}
-                          />
-                        </motion.div>
-                      )}
-
-                      <motion.h2
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.1 }}
-                        className={`text-2xl md:text-3xl font-black font-display ${answerFeedback.isCorrect ? "text-green-400" : "text-red-400"}`}
+                    {/* Result header — only if the user answered */}
+                    {answerFeedback && (
+                      <motion.div
+                        initial={{ scale: 0, rotate: -180 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 200,
+                          damping: 15,
+                        }}
+                        className="text-center mb-4"
                       >
-                        {answerFeedback.isCorrect ? "Correct!" : "Incorrect"}
-                      </motion.h2>
-                    </motion.div>
+                        {answerFeedback.isCorrect ? (
+                          <motion.div
+                            className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center mb-2"
+                            animate={{
+                              boxShadow: [
+                                "0 0 30px rgba(34,197,94,0.3)",
+                                "0 0 50px rgba(34,197,94,0.55)",
+                                "0 0 30px rgba(34,197,94,0.3)",
+                              ],
+                            }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                          >
+                            <CheckCircle
+                              className="w-9 h-9 text-white"
+                              strokeWidth={2.5}
+                            />
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-red-400 to-pink-600 flex items-center justify-center mb-2"
+                            style={{
+                              boxShadow: "0 0 30px rgba(239,68,68,0.3)",
+                            }}
+                            animate={{ scale: [1, 1.05, 1] }}
+                            transition={{ duration: 0.6 }}
+                          >
+                            <XCircle
+                              className="w-9 h-9 text-white"
+                              strokeWidth={2.5}
+                            />
+                          </motion.div>
+                        )}
+
+                        <motion.h2
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.1 }}
+                          className={`text-2xl md:text-3xl font-black font-display ${answerFeedback.isCorrect ? "text-green-400" : "text-red-400"}`}
+                        >
+                          {answerFeedback.isCorrect ? "Correct!" : "Incorrect"}
+                        </motion.h2>
+                      </motion.div>
+                    )}
+
+                    {!answerFeedback && (
+                      <div className="text-center mb-4">
+                        <div
+                          className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-purple-400 to-indigo-600 flex items-center justify-center mb-2"
+                          style={{ boxShadow: "0 0 30px rgba(139,92,246,0.3)" }}
+                        >
+                          <Clock
+                            className="w-9 h-9 text-white"
+                            strokeWidth={2.5}
+                          />
+                        </div>
+                        <h2 className="text-2xl md:text-3xl font-black font-display text-purple-300">
+                          Time&apos;s Up!
+                        </h2>
+                      </div>
+                    )}
 
                     {/* Stats row: Points + Time + Speed */}
-                    <motion.div
-                      initial={{ opacity: 0, y: 15 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2 }}
-                      className="flex items-center justify-center gap-3 mb-5"
-                    >
-                      {/* Points */}
-                      <div
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl"
-                        style={{
-                          background:
-                            "linear-gradient(135deg, rgba(251,191,36,0.12), rgba(245,158,11,0.06))",
-                          border: "1px solid rgba(251,191,36,0.25)",
-                          boxShadow: "0 0 20px rgba(251,191,36,0.15)",
-                        }}
+                    {answerFeedback && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                        className="flex items-center justify-center gap-3 mb-5"
                       >
-                        <Star className="w-4 h-4 text-amber-400" />
-                        <motion.span
-                          className="text-lg font-black gradient-text-amber"
-                          initial={{ scale: 0 }}
-                          animate={{ scale: [0, 1.3, 1] }}
-                          transition={{ delay: 0.35, duration: 0.4 }}
-                        >
-                          +{answerFeedback.pointsAwarded}
-                        </motion.span>
-                        <span className="text-amber-200/60 text-xs font-bold">
-                          pts
-                        </span>
-                      </div>
-
-                      {/* Response time */}
-                      {responseTimeMs > 0 && (
                         <div
-                          className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl"
                           style={{
-                            background: "rgba(255,255,255,0.04)",
-                            border: "1px solid rgba(255,255,255,0.1)",
+                            background:
+                              "linear-gradient(135deg, rgba(251,191,36,0.12), rgba(245,158,11,0.06))",
+                            border: "1px solid rgba(251,191,36,0.25)",
+                            boxShadow: "0 0 20px rgba(251,191,36,0.15)",
                           }}
                         >
-                          <Clock className="w-3.5 h-3.5 text-white/70" />
-                          <span className="text-sm font-bold text-white/80">
-                            {responseSeconds.toFixed(1)}s
-                          </span>
-                          <span
-                            className={`text-xs font-black uppercase tracking-wider ${speedColor}`}
+                          <Star className="w-4 h-4 text-amber-400" />
+                          <motion.span
+                            className="text-lg font-black gradient-text-amber"
+                            initial={{ scale: 0 }}
+                            animate={{ scale: [0, 1.3, 1] }}
+                            transition={{ delay: 0.35, duration: 0.4 }}
                           >
-                            {speedRatio <= 0.15
-                              ? "⚡"
-                              : speedRatio <= 0.3
-                                ? "🔥"
-                                : ""}{" "}
-                            {speedLabel}
+                            +{answerFeedback.pointsAwarded}
+                          </motion.span>
+                          <span className="text-amber-200/60 text-xs font-bold">
+                            pts
                           </span>
                         </div>
-                      )}
-                    </motion.div>
+
+                        {responseTimeMs > 0 && (
+                          <div
+                            className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                            style={{
+                              background: "rgba(255,255,255,0.04)",
+                              border: "1px solid rgba(255,255,255,0.1)",
+                            }}
+                          >
+                            <Clock className="w-3.5 h-3.5 text-white/70" />
+                            <span className="text-sm font-bold text-white/80">
+                              {responseSeconds.toFixed(1)}s
+                            </span>
+                            <span
+                              className={`text-xs font-black uppercase tracking-wider ${speedColor}`}
+                            >
+                              {speedRatio <= 0.15
+                                ? "⚡"
+                                : speedRatio <= 0.3
+                                  ? "🔥"
+                                  : ""}{" "}
+                              {speedLabel}
+                            </span>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
 
                     {/* Podium-style top 3 */}
                     {top3.length > 0 && (
@@ -1732,7 +1779,6 @@ export default function QuizPlayerPage() {
                                     : "bg-white/[0.03]"
                                 }`}
                               >
-                                {/* Medal + avatar */}
                                 <div className="flex items-center gap-2">
                                   <span className="text-lg">
                                     {reviewMedals[i]}
@@ -1745,8 +1791,6 @@ export default function QuizPlayerPage() {
                                       .toUpperCase()}
                                   </div>
                                 </div>
-
-                                {/* Name */}
                                 <span
                                   className={`flex-1 text-sm font-bold truncate ${isMe ? "text-cyan-300" : "text-white/80"}`}
                                 >
@@ -1757,8 +1801,6 @@ export default function QuizPlayerPage() {
                                     </span>
                                   )}
                                 </span>
-
-                                {/* Score */}
                                 <motion.span
                                   className={`font-mono font-black text-sm ${mc.text}`}
                                   initial={isMe ? { scale: 0.8 } : {}}
@@ -1772,7 +1814,6 @@ export default function QuizPlayerPage() {
                           })}
                         </div>
 
-                        {/* Your rank if outside top 3 */}
                         {myEntry && myRankIndex >= 3 && (
                           <motion.div
                             initial={{ opacity: 0 }}
@@ -1804,47 +1845,18 @@ export default function QuizPlayerPage() {
                       </motion.div>
                     )}
 
-                    {/* Countdown timer — time remaining for current question */}
-                    {timeRemaining > 0 && (
+                    {/* Waiting for teacher to advance */}
+                    <div className="flex items-center justify-center gap-2 text-purple-200/90">
                       <motion.div
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="flex flex-col items-center mb-3"
+                        animate={{ opacity: [0.5, 1, 0.5] }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                        className="flex items-center gap-2"
                       >
-                        <div
-                          className="relative w-16 h-16 rounded-full flex items-center justify-center"
-                          style={{
-                            background:
-                              "linear-gradient(135deg, rgba(139,92,246,0.15), rgba(34,211,238,0.1))",
-                            border: "2px solid rgba(139,92,246,0.35)",
-                            boxShadow:
-                              "0 0 20px rgba(139,92,246,0.2), inset 0 0 12px rgba(0,0,0,0.2)",
-                          }}
-                        >
-                          <motion.span
-                            key={timeRemaining}
-                            initial={{ scale: 1.3, opacity: 0.6 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            className="text-xl font-black text-purple-200 font-mono"
-                          >
-                            {timeRemaining}
-                          </motion.span>
-                        </div>
-                        <span className="text-[10px] uppercase tracking-widest text-purple-300/60 font-bold mt-1.5">
-                          Time left for others
+                        <Clock className="w-4 h-4 text-purple-300" />
+                        <span className="text-xs font-medium">
+                          Waiting for next question...
                         </span>
                       </motion.div>
-                    )}
-
-                    <div className="flex items-center justify-center gap-2 text-purple-200/90">
-                      <div className="waiting-dots">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                      </div>
-                      <span className="text-xs font-medium">
-                        Next question coming…
-                      </span>
                     </div>
                   </div>
                 </motion.div>

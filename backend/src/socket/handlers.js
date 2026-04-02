@@ -12,6 +12,13 @@ const { verifyToken } = require("../config/jwt");
 const connectedUsers = new Map();
 const activeSessions = new Map();
 
+// Grace period (ms) added to time limit for answer acceptance (network latency buffer)
+const GRACE_MS = 3000;
+// Extra buffer before server auto-ends a question if host doesn't
+const AUTO_END_BUFFER_MS = 5000;
+// Transition delay (ms) before first question timer starts (startup countdown)
+const FIRST_QUESTION_DELAY_MS = 5000;
+
 /**
  * Sanitize user input by HTML-encoding special chars
  */
@@ -78,6 +85,8 @@ function initializeSocketHandlers(io) {
         });
 
         socket.emit("authenticated", { success: true });
+        // Send server time for client offset calculation
+        socket.emit("ServerTime", { serverTime: Date.now() });
         console.log(`[Socket] User ${decoded.id} authenticated`);
       } catch (error) {
         socket.emit("authError", { error: "Authentication failed" });
@@ -269,6 +278,23 @@ function initializeSocketHandlers(io) {
           return;
         }
 
+        // Server-side time enforcement: reject answers after deadline
+        const sessionData = activeSessions.get(socket.sessionId);
+        if (sessionData?.currentQuestion) {
+          const q = sessionData.currentQuestion;
+          if (q.id === questionId) {
+            const deadline =
+              q.questionStartTime + q.timeLimit * 1000 + GRACE_MS;
+            if (Date.now() > deadline) {
+              socket.emit("error", { error: "Time is up for this question" });
+              console.log(
+                `[Socket] Rejected late answer from user ${socket.userId} (now=${Date.now()}, deadline=${deadline})`,
+              );
+              return;
+            }
+          }
+        }
+
         // Submit answer and get score
         const result = await SessionService.submitAnswer(
           socket.sessionId,
@@ -352,6 +378,57 @@ function initializeSocketHandlers(io) {
           return;
         }
 
+        const now = Date.now();
+        const timeLimit = question.time_limit || 30;
+
+        // Track question timing in activeSessions for server-side enforcement
+        let sessionData = activeSessions.get(parseInt(sessionId));
+        if (!sessionData) {
+          sessionData = { sessionId: parseInt(sessionId), participants: [] };
+          activeSessions.set(parseInt(sessionId), sessionData);
+        }
+
+        // Clear any existing auto-end timer
+        if (sessionData.autoEndTimer) {
+          clearTimeout(sessionData.autoEndTimer);
+          sessionData.autoEndTimer = null;
+        }
+
+        const isFirstQuestion = !sessionData.hasStartedFirstQuestion;
+        sessionData.hasStartedFirstQuestion = true;
+
+        // questionStartTime = when the question timer actually begins
+        // For first question, add delay for the 5s startup countdown
+        const questionStartTime = isFirstQuestion
+          ? now + FIRST_QUESTION_DELAY_MS
+          : now;
+
+        sessionData.currentQuestion = {
+          id: question.id,
+          questionStartTime: questionStartTime,
+          timeLimit: timeLimit,
+        };
+
+        // Auto-end safety net: if host doesn't end the question, server does
+        const autoEndDelay =
+          questionStartTime -
+          now +
+          timeLimit * 1000 +
+          GRACE_MS +
+          AUTO_END_BUFFER_MS;
+        sessionData.autoEndTimer = setTimeout(() => {
+          console.log(
+            `[Socket] Auto-ending question ${question.id} in session ${sessionId} (host timeout)`,
+          );
+          io.to(`session:${sessionId}`).emit("QuestionEnded", {
+            correctOptionId: null,
+            autoEnded: true,
+          });
+          if (sessionData.currentQuestion) {
+            sessionData.currentQuestion = null;
+          }
+        }, autoEndDelay);
+
         io.to(`session:${sessionId}`).emit("QuestionStarted", {
           questionId: question.id,
           questionText: question.question_text,
@@ -359,12 +436,14 @@ function initializeSocketHandlers(io) {
             id: o.id,
             text: o.option_text,
           })),
-          timeLimit: question.time_limit,
+          timeLimit: timeLimit,
           points: question.points,
-          startedAt: Date.now(),
+          questionStartTime: questionStartTime,
         });
 
-        console.log(`[Socket] Question started in session ${sessionId}`);
+        console.log(
+          `[Socket] Question started in session ${sessionId} (first=${isFirstQuestion}, timeLimit=${timeLimit}s, questionStartTime=${questionStartTime})`,
+        );
       } catch (error) {
         console.error("[Socket] broadcastQuestionStarted error:", error);
         socket.emit("error", { error: "Failed to broadcast question" });
@@ -386,6 +465,16 @@ function initializeSocketHandlers(io) {
             error: "Only the session owner can end questions",
           });
           return;
+        }
+
+        // Clear auto-end timer and current question timing
+        const sessionData = activeSessions.get(parseInt(sessionId));
+        if (sessionData) {
+          if (sessionData.autoEndTimer) {
+            clearTimeout(sessionData.autoEndTimer);
+            sessionData.autoEndTimer = null;
+          }
+          sessionData.currentQuestion = null;
         }
 
         io.to(`session:${sessionId}`).emit("QuestionEnded", {
@@ -420,8 +509,14 @@ function initializeSocketHandlers(io) {
           finalLeaderboard,
         });
 
+        // Clear any pending auto-end timer before removing session
+        const endSessionData = activeSessions.get(parseInt(sessionId));
+        if (endSessionData?.autoEndTimer) {
+          clearTimeout(endSessionData.autoEndTimer);
+        }
+
         // Remove session from active sessions
-        activeSessions.delete(sessionId);
+        activeSessions.delete(parseInt(sessionId));
 
         console.log(`[Socket] Quiz ended in session ${sessionId}`);
       } catch (error) {

@@ -54,7 +54,7 @@ export default function HostSessionPage() {
   const [quizTitle, setQuizTitle] = useState<string>("");
   const [players, setPlayers] = useState<any[]>([]);
   const [sessionState, setSessionState] = useState<
-    "waiting" | "startCountdown" | "active" | "reveal" | "finished"
+    "waiting" | "startCountdown" | "active" | "leaderboard" | "finished"
   >("waiting");
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
@@ -75,11 +75,11 @@ export default function HostSessionPage() {
   const [answerStats, setAnswerStats] = useState<Record<number, number>>({});
   const [totalAnswers, setTotalAnswers] = useState(0);
   const [themeImage, setThemeImage] = useState<string>("");
-  const autoAdvanceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const didAutoAdvanceRef = useRef(false);
-  const startupCountdownRef = useRef<NodeJS.Timeout | null>(null);
-  const hasShownInitialQuestionCountdownRef = useRef(false);
-  const questionStartedAtRef = useRef<number>(0);
+  const serverOffsetRef = useRef<number>(0);
+  const questionStartTimeRef = useRef<number>(0);
+  const questionDurationRef = useRef<number>(30);
+  const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
+  const LEADERBOARD_DISPLAY_S = 5;
 
   const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
   const joinUrl =
@@ -288,36 +288,26 @@ export default function HostSessionPage() {
       }
     });
 
+    socket.on("ServerTime", (data: any) => {
+      serverOffsetRef.current = (data.serverTime || Date.now()) - Date.now();
+    });
+
     socket.on("QuestionStarted", (data: any) => {
-      didAutoAdvanceRef.current = false;
       setAnswerStats({});
       setTotalAnswers(0);
-      setCurrentQuestion({
-        text: data.questionText,
-        options: data.options,
-        id: data.questionId,
-        points: data.points || 100,
-        time_limit: data.timeLimit || 30,
-      });
-      // Store server startedAt for accurate timer sync
-      questionStartedAtRef.current = data.startedAt || Date.now();
-      const elapsed = Math.max(
-        0,
-        (Date.now() - questionStartedAtRef.current) / 1000,
-      );
-      if (!hasShownInitialQuestionCountdownRef.current) {
-        hasShownInitialQuestionCountdownRef.current = true;
-        // First question: show startup countdown, timer will sync via startedAt
+
+      questionStartTimeRef.current = data.questionStartTime || Date.now();
+      questionDurationRef.current = data.timeLimit || 30;
+
+      const adjustedNow = Date.now() + serverOffsetRef.current;
+      const untilStart = questionStartTimeRef.current - adjustedNow;
+
+      if (untilStart > 1000) {
+        setStartupCountdown(Math.ceil(untilStart / 1000));
         setTimeRemaining(data.timeLimit || 30);
-        setStartupCountdown(5);
         setSessionState("startCountdown");
       } else {
-        // Subsequent questions: subtract network delay
-        const adjustedTime = Math.max(
-          1,
-          Math.ceil((data.timeLimit || 30) - elapsed),
-        );
-        setTimeRemaining(adjustedTime);
+        setTimeRemaining(data.timeLimit || 30);
         setSessionState("active");
       }
     });
@@ -340,6 +330,7 @@ export default function HostSessionPage() {
       socket.off("ParticipantJoined");
       socket.off("ParticipantLeft");
       socket.off("AnswerSubmitted");
+      socket.off("ServerTime");
       socket.off("QuestionStarted");
       socket.off("LeaderboardUpdate");
       socket.off("QuizEnded");
@@ -380,58 +371,32 @@ export default function HostSessionPage() {
     };
   }, []);
 
-  // Startup countdown (5 seconds before question timer actually starts)
+  // Single unified timer loop — handles startCountdown + active states
   useEffect(() => {
-    if (sessionState !== "startCountdown" || startupCountdown <= 0) return;
+    if (sessionState !== "startCountdown" && sessionState !== "active") return;
 
-    startupCountdownRef.current = setInterval(() => {
-      setStartupCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(startupCountdownRef.current!);
-          // Reset startedAt to now — countdown is over, question timer starts fresh
-          questionStartedAtRef.current = Date.now();
+    const tick = setInterval(() => {
+      const adjustedNow = Date.now() + serverOffsetRef.current;
+
+      if (sessionState === "startCountdown") {
+        const remaining = Math.max(
+          0,
+          Math.ceil((questionStartTimeRef.current - adjustedNow) / 1000),
+        );
+        setStartupCountdown(remaining);
+        if (remaining <= 0) {
           setSessionState("active");
-          return 0;
         }
-        return prev - 1;
-      });
-    }, 1000);
+        return;
+      }
 
-    return () => {
-      if (startupCountdownRef.current)
-        clearInterval(startupCountdownRef.current);
-    };
-  }, [sessionState, startupCountdown]);
-
-  // Timer countdown (only runs during "active" state)
-  // Uses a ref-based end time computed once per question to prevent drift.
-  const timerEndTimeRef = useRef<number>(0);
-  const timerQuestionRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (sessionState !== "active") {
-      timerQuestionRef.current = null;
-      return;
-    }
-
-    // Only compute end time once per question (prevents drift from re-runs)
-    const qId = currentQuestion?.id;
-    if (timerQuestionRef.current === qId) return;
-    timerQuestionRef.current = qId;
-
-    // Use server startedAt to compute end time so timer stays synced
-    // (accounts for startup countdown elapsed time on first question)
-    const timeLimit = currentQuestion?.time_limit || 30;
-    timerEndTimeRef.current = questionStartedAtRef.current
-      ? questionStartedAtRef.current + timeLimit * 1000
-      : Date.now() + timeRemaining * 1000;
-    const timer = setInterval(() => {
-      const remaining = Math.max(
-        0,
-        Math.ceil((timerEndTimeRef.current - Date.now()) / 1000),
-      );
+      // sessionState === "active"
+      const deadline =
+        questionStartTimeRef.current + questionDurationRef.current * 1000;
+      const remaining = Math.max(0, Math.ceil((deadline - adjustedNow) / 1000));
       setTimeRemaining(remaining);
       if (remaining <= 0) {
-        clearInterval(timer);
+        clearInterval(tick);
         const socket = getSocket();
         if (socket && currentQuestion?.options) {
           const correct = currentQuestion.options.find(
@@ -442,10 +407,11 @@ export default function HostSessionPage() {
             correctOptionId: correct?.id,
           });
         }
-        setSessionState("reveal");
+        setSessionState("leaderboard");
       }
     }, 250);
-    return () => clearInterval(timer);
+
+    return () => clearInterval(tick);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionState, currentQuestion?.id, sessionId]);
 
@@ -578,25 +544,18 @@ export default function HostSessionPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
-  // Auto-load next question shortly after reveal starts
+  // Auto-advance to next question after leaderboard display
   useEffect(() => {
-    if (
-      sessionState !== "reveal" ||
-      isActionLoading ||
-      didAutoAdvanceRef.current
-    ) {
-      return;
-    }
+    if (sessionState !== "leaderboard" || isActionLoading) return;
 
-    didAutoAdvanceRef.current = true;
-    autoAdvanceTimeoutRef.current = setTimeout(() => {
+    autoAdvanceRef.current = setTimeout(() => {
       handleNextQuestion();
-    }, 2200);
+    }, LEADERBOARD_DISPLAY_S * 1000);
 
     return () => {
-      if (autoAdvanceTimeoutRef.current) {
-        clearTimeout(autoAdvanceTimeoutRef.current);
-        autoAdvanceTimeoutRef.current = null;
+      if (autoAdvanceRef.current) {
+        clearTimeout(autoAdvanceRef.current);
+        autoAdvanceRef.current = null;
       }
     };
   }, [sessionState, isActionLoading, handleNextQuestion]);
@@ -1112,7 +1071,7 @@ export default function HostSessionPage() {
   if (
     sessionState === "active" ||
     sessionState === "startCountdown" ||
-    sessionState === "reveal"
+    sessionState === "leaderboard"
   ) {
     return (
       <div className="relative min-h-[100dvh] w-full overflow-hidden flex flex-col font-sans">
@@ -1150,12 +1109,18 @@ export default function HostSessionPage() {
                   {players.length}
                 </span>
               </div>
-              {sessionState === "reveal" && (
+              {sessionState === "leaderboard" && (
                 <motion.button
                   type="button"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={handleNextQuestion}
+                  onClick={() => {
+                    if (autoAdvanceRef.current) {
+                      clearTimeout(autoAdvanceRef.current);
+                      autoAdvanceRef.current = null;
+                    }
+                    handleNextQuestion();
+                  }}
                   disabled={isActionLoading}
                   className="btn-cartoon btn-cartoon-blue px-6 py-2.5 rounded-2xl flex gap-2 items-center font-black shadow-[0_0_20px_rgba(59,130,246,0.6)]"
                 >
@@ -1314,7 +1279,7 @@ export default function HostSessionPage() {
                             ? Math.round((optionCount / totalAnswers) * 100)
                             : 0;
 
-                        const isReveal = sessionState === "reveal";
+                        const isReveal = sessionState === "leaderboard";
                         const isCorrect = isReveal && opt.is_correct;
                         const isWrong = isReveal && !opt.is_correct;
 
@@ -1392,7 +1357,19 @@ export default function HostSessionPage() {
                       type="button"
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => setSessionState("reveal")}
+                      onClick={() => {
+                        const socket = getSocket();
+                        if (socket && currentQuestion?.options) {
+                          const correct = currentQuestion.options.find(
+                            (o: any) => o.is_correct,
+                          );
+                          socket.emit("broadcastQuestionEnded", {
+                            sessionId: parseInt(sessionId),
+                            correctOptionId: correct?.id,
+                          });
+                        }
+                        setSessionState("leaderboard");
+                      }}
                       className="mt-1 mx-auto btn-cartoon bg-purple-500/20 hover:bg-purple-500/40 border-2 border-purple-500/50 text-purple-200 px-6 py-1.5 rounded-full font-bold text-sm flex gap-2 items-center"
                     >
                       <Zap size={16} /> Skip Timer
