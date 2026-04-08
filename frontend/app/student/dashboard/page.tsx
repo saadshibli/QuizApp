@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/authStore";
 import { sessionAPI } from "@/lib/api";
+import Link from "next/link";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
@@ -66,7 +68,7 @@ function StatCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.08 }}
       whileHover={{ y: -3, scale: 1.03 }}
-      className="cartoon-panel p-3.5 relative overflow-hidden group cursor-default"
+      className="cartoon-panel p-2.5 sm:p-3.5 relative overflow-hidden group cursor-default"
       style={{ boxShadow: `0 4px 20px ${glowColor}` }}
     >
       <motion.div
@@ -75,18 +77,18 @@ function StatCard({
           background: `radial-gradient(circle at center, ${glowColor}, transparent 70%)`,
         }}
       />
-      <div className="flex items-center gap-2 mb-1.5 relative">
+      <div className="flex items-center gap-1.5 sm:gap-2 mb-1 sm:mb-1.5 relative">
         <motion.div
           whileHover={{ rotate: 15, scale: 1.15 }}
-          className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center border border-white/[0.06]"
+          className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white/5 flex items-center justify-center border border-white/[0.06]"
         >
           {icon}
         </motion.div>
-        <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider">
+        <span className="text-[9px] sm:text-[10px] font-bold text-white/40 uppercase tracking-wider truncate">
           {label}
         </span>
       </div>
-      <p className="text-xl font-black text-white relative">
+      <p className="text-lg sm:text-xl font-black text-white relative">
         {value === 0 && label === "Best Rank"
           ? "—"
           : `${prefix || ""}${animVal.toLocaleString()}${suffix || ""}`}
@@ -173,7 +175,6 @@ export default function StudentDashboard() {
           "Failed to join session",
       );
       setInvalidCode(true);
-    } finally {
       setIsLoading(false);
     }
   };
@@ -288,15 +289,23 @@ export default function StudentDashboard() {
       <motion.header
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative z-10 flex items-center justify-between px-4 sm:px-8 pt-5 pb-2"
+        className="relative z-10 flex items-center justify-between px-3 sm:px-8 pt-4 sm:pt-5 pb-2"
       >
-        <div className="flex items-center gap-3.5">
-          <motion.div
-            whileHover={{ rotate: 10, scale: 1.1 }}
-            className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/25 border border-white/15"
-          >
-            <Gamepad2 className="w-5 h-5 text-white" />
-          </motion.div>
+        <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+          <Link href="/profile">
+            <motion.div
+              whileHover={{ rotate: 10, scale: 1.1 }}
+              className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/25 border border-white/15 overflow-hidden cursor-pointer flex-shrink-0"
+            >
+              {user?.avatar && user.avatar.startsWith("http") ? (
+                <Image src={user.avatar} alt="" width={40} height={40} className="w-full h-full object-cover" />
+              ) : user?.avatar ? (
+                <span className="text-xl leading-none">{user.avatar}</span>
+              ) : (
+                <Gamepad2 className="w-5 h-5 text-white" />
+              )}
+            </motion.div>
+          </Link>
           <div>
             <p className="text-sm font-bold text-white font-display flex items-center gap-1.5">
               Player Hub
@@ -315,13 +324,13 @@ export default function StudentDashboard() {
         </button>
       </motion.header>
 
-      <div className="relative z-10 flex-1 flex flex-col px-4 sm:px-6 lg:px-8 pb-6 pt-2 max-w-6xl mx-auto w-full">
+      <div className="relative z-10 flex-1 flex flex-col px-3 sm:px-6 lg:px-8 pb-6 pt-2 max-w-6xl mx-auto w-full">
         {/* Stats Row */}
         {quizHistory.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5"
+            className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-5"
           >
             {[
               {
@@ -529,10 +538,10 @@ export default function StudentDashboard() {
 
                         {/* Info */}
                         <div className="flex-1 min-w-0 relative">
-                          <p className="text-white font-bold text-sm truncate group-hover:text-white/95">
+                          <p className="text-white font-bold text-xs sm:text-sm truncate group-hover:text-white/95">
                             {h.quiz_title || "Quiz"}
                           </p>
-                          <div className="flex items-center gap-3 mt-0.5">
+                          <div className="flex items-center gap-2 sm:gap-3 mt-0.5 flex-wrap">
                             <span className="text-white/35 text-[11px] flex items-center gap-1">
                               <Clock className="w-3 h-3" />
                               {h.started_at
@@ -573,7 +582,7 @@ export default function StudentDashboard() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2.5"
+          className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5"
         >
           {[
             {
@@ -654,12 +663,12 @@ export default function StudentDashboard() {
             placeholder="000000"
             disabled={isLoading}
           />
-          <div className="flex gap-2.5 sm:gap-3 justify-center">
+          <div className="flex gap-1.5 xs:gap-2 sm:gap-3 justify-center">
             {codeChars.map((char, idx) => (
               <motion.div
                 key={idx}
                 whileHover={{ y: -1.5, scale: 1.02 }}
-                className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl flex items-center justify-center text-xl sm:text-2xl font-black font-display transition-all duration-200 ${
+                className={`w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-lg sm:rounded-xl flex items-center justify-center text-lg sm:text-xl md:text-2xl font-black font-display transition-all duration-200 ${
                   focusedInput === "code" && sessionCode.length === idx
                     ? "border-2 border-cyan-300 bg-cyan-500/18"
                     : char.trim()

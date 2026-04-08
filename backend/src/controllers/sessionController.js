@@ -6,9 +6,6 @@
 const SessionService = require("../services/sessionService");
 const SessionRepository = require("../repositories/sessionRepository");
 const QuizRepository = require("../repositories/quizRepository");
-const UserRepository = require("../repositories/userRepository");
-const { generateToken } = require("../config/jwt");
-const crypto = require("crypto");
 
 /**
  * Sanitize user input by stripping all HTML/script content
@@ -54,21 +51,7 @@ class SessionController {
           .status(400)
           .json({ success: false, error: "Nickname is required" });
       }
-      let userId = req.user ? req.user.id : null;
-      let isGuest = false;
-
-      if (!userId) {
-        // Create temporary guest user with a random unguessable password hash
-        const guestEmail = `guest_${Date.now()}_${crypto.randomBytes(4).toString("hex")}@guest.local`;
-        const guestUser = await UserRepository.createUser({
-          name: nickname,
-          email: guestEmail,
-          passwordHash: crypto.randomBytes(32).toString("hex"),
-          role: "student",
-        });
-        userId = guestUser.id;
-        isGuest = true;
-      }
+      const userId = req.user.id;
 
       const participant = await SessionService.joinSession(
         session_code,
@@ -76,24 +59,7 @@ class SessionController {
         nickname,
       );
 
-      let responsePayload = { ...participant, session_code };
-
-      // If guest, generate a token for session auth
-      if (isGuest) {
-        const token = generateToken({
-          id: userId,
-          role: "student",
-          nickname: nickname,
-        });
-        responsePayload = {
-          ...participant,
-          session_code,
-          token,
-          guestUserId: userId,
-        };
-      }
-
-      res.status(201).json(responsePayload);
+      res.status(201).json({ ...participant, session_code });
     } catch (error) {
       next(error);
     }

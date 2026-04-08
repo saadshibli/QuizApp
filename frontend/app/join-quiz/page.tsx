@@ -47,18 +47,6 @@ function JoinQuizContent() {
         nickname: nickname || user?.name || "Player",
       });
 
-      if (response.data.token) {
-        useAuthStore.getState().login(
-          {
-            id: response.data.guestUserId,
-            name: nickname || "Player",
-            email: `guest_${response.data.guestUserId}@guest.local`,
-            role: "student",
-          },
-          response.data.token,
-        );
-      }
-
       router.replace(
         `/quiz-player/${response.data.session_code || sessionCode.toUpperCase()}`,
       );
@@ -69,7 +57,6 @@ function JoinQuizContent() {
         "Failed to join. Check the code and try again.";
       setError(msg);
       setInvalidCode(true);
-    } finally {
       setLoading(false);
     }
   };
@@ -106,7 +93,7 @@ function JoinQuizContent() {
       </motion.button>
 
       {/* Main content — vertically centered, full width */}
-      <div className="flex-1 flex items-center justify-center px-4 py-5 sm:py-6 relative z-10">
+      <div className="flex-1 flex items-center justify-center px-3 sm:px-4 py-5 sm:py-6 relative z-10">
         <div className="w-full max-w-2xl">
           {/* Top: Rocket + Title */}
           <motion.div
@@ -122,7 +109,7 @@ function JoinQuizContent() {
             >
               <CartoonRocket className="w-full h-full" />
             </motion.div>
-            <h1 className="title-cartoon text-4xl sm:text-5xl gradient-text-pink-cyan mb-1.5">
+            <h1 className="title-cartoon text-2xl sm:text-4xl md:text-5xl gradient-text-pink-cyan mb-1.5">
               Ready to Play?
             </h1>
             <p className="text-[#b7b1d4] text-sm">
@@ -137,7 +124,7 @@ function JoinQuizContent() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            <div className="cartoon-panel p-6 md:p-7">
+            <div className="cartoon-panel p-4 sm:p-6 md:p-7">
               <form onSubmit={handleJoin} className="space-y-5">
                 {error && (
                   <motion.div
@@ -185,7 +172,7 @@ function JoinQuizContent() {
                       autoFocus
                     />
                     <div
-                      className="flex gap-2.5 sm:gap-3 justify-center"
+                      className="flex gap-1.5 sm:gap-2.5 md:gap-3 justify-center"
                       onClick={() => inputRef.current?.focus()}
                     >
                       {codeChars.map((char, idx) => {
@@ -196,7 +183,7 @@ function JoinQuizContent() {
                           <motion.div
                             key={idx}
                             whileHover={{ y: -1.5, scale: 1.02 }}
-                            className={`w-13 h-13 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center text-2xl sm:text-3xl font-black font-display cursor-text transition-all duration-200 ${
+                            className={`w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center text-lg sm:text-2xl md:text-3xl font-black font-display cursor-text transition-all duration-200 ${
                               isFocused
                                 ? "border-2 border-cyan-300 bg-cyan-400/14"
                                 : isFilled
@@ -321,7 +308,7 @@ function JoinQuizContent() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2.5"
+            className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2.5"
           >
             {[
               {
@@ -340,7 +327,7 @@ function JoinQuizContent() {
               <motion.div
                 key={i}
                 whileHover={{ y: -1, scale: 1.01 }}
-                className="flex items-center gap-2.5 py-3 px-4 rounded-xl bg-white/[0.05] border border-white/[0.12] justify-center"
+                className="flex items-center gap-1.5 sm:gap-2.5 py-2 sm:py-3 px-2 sm:px-4 rounded-xl bg-white/[0.05] border border-white/[0.12] justify-center"
               >
                 {item.icon}
                 <span className="text-white/72 text-xs font-semibold">

@@ -4,11 +4,12 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/authStore";
 import { authAPI } from "@/lib/api";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -22,7 +23,8 @@ import {
   EyeOff,
   GraduationCap,
   Presentation,
-  Sparkles,
+  Camera,
+  ImageIcon,
 } from "lucide-react";
 import SpaceBackground from "@/components/SpaceBackground";
 
@@ -34,8 +36,20 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<"teacher" | "student" | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
+  const [avatarMode, setAvatarMode] = useState<"icon" | "gallery">("icon");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  const ICON_OPTIONS = [
+    "🦊", "🐱", "🐶", "🐼", "🦁", "🐸", "🐵", "🐰",
+    "🦄", "🐲", "🐯", "🦉", "🐺", "🦈", "🐙", "🦋",
+    "🤖", "👾", "🎮", "🚀", "⚡", "🔥", "💎", "🌟",
+    "🧑‍🚀", "🧙", "🦸", "🧛", "🎭", "🐻‍❄️",
+  ];
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,9 +73,27 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      const response = await authAPI.register({ name, email, password, role });
+      const registerPayload: any = { name, email, password, role };
+      if (selectedIcon) registerPayload.avatar = selectedIcon;
+      const response = await authAPI.register(registerPayload);
       const { token, user } = response.data;
       login(user, token);
+
+      // Upload avatar image if a gallery file was selected
+      if (avatarFile) {
+        try {
+          const formData = new FormData();
+          formData.append("avatar", avatarFile);
+          const profileRes = await authAPI.updateProfile(formData);
+          const updatedUser = profileRes.data;
+          useAuthStore.getState().setUser({
+            ...user,
+            avatar: updatedUser.avatar,
+          });
+        } catch {
+          // Non-critical — account created, avatar upload failed silently
+        }
+      }
 
       if (user.role === "admin") {
         router.replace("/admin/dashboard");
@@ -72,7 +104,6 @@ export default function RegisterPage() {
       }
     } catch (err: any) {
       setError(err.response?.data?.error || "Registration failed");
-    } finally {
       setIsLoading(false);
     }
   };
@@ -92,7 +123,7 @@ export default function RegisterPage() {
         </motion.button>
       </Link>
 
-      <div className="relative z-10 min-h-screen flex flex-col lg:flex-row lg:items-center lg:gap-8 px-4 sm:px-6 lg:px-10">
+      <div className="relative z-10 min-h-screen flex flex-col lg:flex-row lg:items-center lg:gap-8 px-3 sm:px-6 lg:px-10">
         {/* Left: Role Selection Visual */}
         <motion.div
           initial={{ opacity: 0, x: -40 }}
@@ -157,7 +188,7 @@ export default function RegisterPage() {
         </motion.div>
 
         {/* Right: Registration Form */}
-        <div className="flex-1 flex items-center justify-center py-8">
+        <div className="flex-1 flex items-center justify-center py-16 sm:py-8">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
@@ -165,7 +196,7 @@ export default function RegisterPage() {
             className="w-full max-w-[520px]"
           >
             <div className="rounded-[30px] p-[1px] bg-gradient-to-br from-[#8b5cf6]/58 via-[#3b82f6]/30 to-[#06b6d4]/52 shadow-[0_30px_80px_rgba(8,7,33,0.62)]">
-              <div className="rounded-[29px] bg-[#140f2f]/84 backdrop-blur-[18px] p-6 sm:p-7 md:p-8 min-h-[620px] flex flex-col shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+              <div className="rounded-[29px] bg-[#140f2f]/84 backdrop-blur-[18px] p-4 sm:p-7 md:p-8 min-h-0 sm:min-h-[620px] flex flex-col shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
                 <div className="h-[3px] w-28 rounded-full bg-gradient-to-r from-[#8b5cf6] via-[#6366f1] to-[#06b6d4] mb-5" />
                 {/* Header */}
                 <div className="mb-5">
@@ -279,7 +310,7 @@ export default function RegisterPage() {
                               type="text"
                               value={name}
                               onChange={(e) => setName(e.target.value)}
-                              className="w-full h-[52px] rounded-xl border border-white/12 bg-white/[0.045] pl-12 pr-4 text-white placeholder:text-white/35 outline-none transition-all duration-200 hover:border-white/20 hover:bg-white/[0.06] focus:border-cyan-300/70 focus:bg-white/[0.07] focus:shadow-[0_0_0_4px_rgba(34,211,238,0.14),0_10px_24px_rgba(6,182,212,0.12)] disabled:cursor-not-allowed"
+                              className="w-full h-11 sm:h-[52px] rounded-xl border border-white/12 bg-white/[0.045] pl-12 pr-4 text-white placeholder:text-white/35 outline-none transition-all duration-200 hover:border-white/20 hover:bg-white/[0.06] focus:border-cyan-300/70 focus:bg-white/[0.07] focus:shadow-[0_0_0_4px_rgba(34,211,238,0.14),0_10px_24px_rgba(6,182,212,0.12)] disabled:cursor-not-allowed"
                               placeholder="John Doe"
                             />
                           </div>
@@ -295,11 +326,132 @@ export default function RegisterPage() {
                               type="email"
                               value={email}
                               onChange={(e) => setEmail(e.target.value)}
-                              className="w-full h-[52px] rounded-xl border border-white/12 bg-white/[0.045] pl-12 pr-4 text-white placeholder:text-white/35 outline-none transition-all duration-200 hover:border-white/20 hover:bg-white/[0.06] focus:border-cyan-300/70 focus:bg-white/[0.07] focus:shadow-[0_0_0_4px_rgba(34,211,238,0.14),0_10px_24px_rgba(6,182,212,0.12)] disabled:cursor-not-allowed"
+                              className="w-full h-11 sm:h-[52px] rounded-xl border border-white/12 bg-white/[0.045] pl-12 pr-4 text-white placeholder:text-white/35 outline-none transition-all duration-200 hover:border-white/20 hover:bg-white/[0.06] focus:border-cyan-300/70 focus:bg-white/[0.07] focus:shadow-[0_0_0_4px_rgba(34,211,238,0.14),0_10px_24px_rgba(6,182,212,0.12)] disabled:cursor-not-allowed"
                               placeholder="you@example.com"
                             />
                           </div>
                         </div>
+                      </div>
+
+                      <div className="space-y-2.5">
+                        <label className="block text-white/85 font-semibold text-sm">
+                          Profile Picture
+                        </label>
+
+                        {/* Mode toggle */}
+                        <div className="flex rounded-xl overflow-hidden border border-white/15">
+                          <button
+                            type="button"
+                            onClick={() => setAvatarMode("icon")}
+                            className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                              avatarMode === "icon"
+                                ? "bg-purple-500/25 text-purple-200 border-r border-white/15"
+                                : "bg-white/[0.04] text-white/50 hover:bg-white/[0.08] border-r border-white/15"
+                            }`}
+                          >
+                            <span className="text-sm">😎</span> Choose Icon
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAvatarMode("gallery")}
+                            className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                              avatarMode === "gallery"
+                                ? "bg-cyan-500/25 text-cyan-200"
+                                : "bg-white/[0.04] text-white/50 hover:bg-white/[0.08]"
+                            }`}
+                          >
+                            <ImageIcon className="w-3.5 h-3.5" /> Gallery
+                          </button>
+                        </div>
+
+                        {/* Icon picker */}
+                        {avatarMode === "icon" && (
+                          <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                            {ICON_OPTIONS.map((icon) => (
+                              <button
+                                key={icon}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedIcon(icon);
+                                  setAvatarFile(null);
+                                  setAvatarPreview(null);
+                                }}
+                                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center text-lg sm:text-xl transition-all duration-200 ${
+                                  selectedIcon === icon
+                                    ? "bg-purple-500/30 border-2 border-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.4)] scale-110"
+                                    : "bg-white/[0.06] border border-white/10 hover:bg-white/[0.12] hover:border-white/20"
+                                }`}
+                              >
+                                {icon}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Gallery upload */}
+                        {avatarMode === "gallery" && (
+                          <div className="flex items-center gap-4">
+                            <div className="relative group">
+                              <div className="w-16 h-16 rounded-full border-2 border-white/15 overflow-hidden bg-gradient-to-br from-purple-500/20 to-cyan-500/20 flex items-center justify-center">
+                                {avatarPreview ? (
+                                  <Image
+                                    src={avatarPreview}
+                                    alt="Avatar preview"
+                                    width={64}
+                                    height={64}
+                                    className="w-full h-full object-cover"
+                                    unoptimized
+                                  />
+                                ) : (
+                                  <User className="w-7 h-7 text-white/40" />
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                              >
+                                <Camera className="w-5 h-5 text-white" />
+                              </button>
+                            </div>
+                            <div className="flex-1">
+                              <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="text-sm font-semibold text-cyan-300 hover:text-cyan-200 transition-colors flex items-center gap-1.5"
+                              >
+                                <ImageIcon className="w-4 h-4" />
+                                {avatarPreview ? "Change image" : "Choose from gallery"}
+                              </button>
+                              <p className="text-xs text-white/40 mt-1">
+                                JPG, PNG or GIF · Max 5 MB
+                              </p>
+                              {avatarFile && (
+                                <p className="text-xs text-emerald-300 mt-0.5 truncate max-w-[200px]">
+                                  {avatarFile.name}
+                                </p>
+                              )}
+                            </div>
+                            <input
+                              ref={fileInputRef}
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                if (!file.type.startsWith("image/")) return;
+                                if (file.size > 5 * 1024 * 1024) {
+                                  setError("Image must be under 5 MB.");
+                                  return;
+                                }
+                                setAvatarFile(file);
+                                setAvatarPreview(URL.createObjectURL(file));
+                                setSelectedIcon(null);
+                              }}
+                              className="hidden"
+                            />
+                          </div>
+                        )}
                       </div>
 
                       <div className="space-y-2.5">
@@ -312,7 +464,7 @@ export default function RegisterPage() {
                             type={showPassword ? "text" : "password"}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full h-[52px] rounded-xl border border-white/12 bg-white/[0.045] pl-12 pr-12 text-white placeholder:text-white/35 outline-none transition-all duration-200 hover:border-white/20 hover:bg-white/[0.06] focus:border-cyan-300/70 focus:bg-white/[0.07] focus:shadow-[0_0_0_4px_rgba(34,211,238,0.14),0_10px_24px_rgba(6,182,212,0.12)] disabled:cursor-not-allowed"
+                            className="w-full h-11 sm:h-[52px] rounded-xl border border-white/12 bg-white/[0.045] pl-12 pr-12 text-white placeholder:text-white/35 outline-none transition-all duration-200 hover:border-white/20 hover:bg-white/[0.06] focus:border-cyan-300/70 focus:bg-white/[0.07] focus:shadow-[0_0_0_4px_rgba(34,211,238,0.14),0_10px_24px_rgba(6,182,212,0.12)] disabled:cursor-not-allowed"
                             placeholder="Create a password"
                           />
                           <button
@@ -344,7 +496,7 @@ export default function RegisterPage() {
                       whileTap={{ scale: role ? 0.985 : 1 }}
                       type="submit"
                       disabled={isLoading || !role}
-                      className={`w-full h-[52px] rounded-xl text-base font-bold mt-1 btn-cartoon inline-flex items-center justify-center gap-2 disabled:opacity-55 disabled:cursor-not-allowed ${
+                      className={`w-full h-11 sm:h-[52px] rounded-xl text-sm sm:text-base font-bold mt-1 btn-cartoon inline-flex items-center justify-center gap-2 disabled:opacity-55 disabled:cursor-not-allowed ${
                         role === "teacher"
                           ? "btn-cartoon-pink"
                           : role === "student"

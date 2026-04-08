@@ -9,6 +9,7 @@ const AuthController = require("../controllers/authController");
 const { authenticate } = require("../middleware/auth");
 const { validate, schemas } = require("../middleware/validation");
 const { loginLimiter } = require("../middleware/rateLimiter");
+const { upload } = require("../config/cloudinary");
 
 const router = express.Router();
 
@@ -41,5 +42,16 @@ router.post(
  * Get current user profile - requires authentication
  */
 router.get("/profile", authenticate, AuthController.getProfile);
+
+/**
+ * PUT /api/auth/profile
+ * Update user profile — supports multipart/form-data for avatar upload
+ */
+router.put(
+  "/profile",
+  authenticate,
+  upload.single("avatar"),
+  AuthController.updateProfile,
+);
 
 module.exports = router;

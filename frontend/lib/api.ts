@@ -114,12 +114,18 @@ export const authAPI = {
     email: string;
     password: string;
     role: string;
+    avatar?: string;
   }) => apiClient.post("/api/auth/register", data),
 
   login: (data: { email: string; password: string }) =>
     apiClient.post("/api/auth/login", data),
 
   getProfile: () => apiClient.get("/api/auth/profile"),
+
+  updateProfile: (data: FormData) =>
+    apiClient.put("/api/auth/profile", data, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
 };
 
 // ==================== QUIZ APIs ====================

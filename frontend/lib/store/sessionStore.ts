@@ -21,6 +21,7 @@ export interface LeaderboardEntry {
   nickname: string;
   score: number;
   totalResponseTime?: number;
+  avatar?: string;
 }
 
 interface SessionStore {

@@ -41,6 +41,7 @@ const schemas = {
     email: Joi.string().email().required(),
     password: Joi.string().min(6).required(),
     role: Joi.string().valid("teacher", "student").required(),
+    avatar: Joi.string().max(255).allow("").optional(),
   }),
 
   login: Joi.object({

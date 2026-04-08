@@ -6,6 +6,21 @@ import { useAuthStore } from "@/lib/store/authStore";
 import { useRouter, useParams } from "next/navigation";
 import { sessionAPI, quizAPI } from "@/lib/api";
 import Image from "next/image";
+
+function AvatarBubble({ avatar, name, className }: { avatar?: string | null; name: string; className: string }) {
+  const initial = (name || "?").charAt(0).toUpperCase();
+  if (avatar && avatar.startsWith("http")) {
+    return (
+      <div className={`${className} overflow-hidden`}>
+        <Image src={avatar} alt={name} fill className="object-cover" sizes="80px" />
+      </div>
+    );
+  }
+  if (avatar && !avatar.startsWith("http")) {
+    return <div className={className}>{avatar}</div>;
+  }
+  return <div className={className}>{initial}</div>;
+}
 import {
   initializeSocket,
   getSocket,
@@ -62,6 +77,9 @@ export default function HostSessionPage() {
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [copied, setCopied] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [totalQuestions, setTotalQuestions] = useState(0);
+  const [advanceMode, setAdvanceMode] = useState<"auto" | "manual">("auto");
+  const [advanceSeconds, setAdvanceSeconds] = useState(5);
 
   // Normalize leaderboard entries to ensure totalResponseTime is always a number
   const normalizeLeaderboard = (entries: any[]) =>
@@ -179,6 +197,7 @@ export default function HostSessionPage() {
               id: p.user_id || p.id,
               username: p.nickname || p.name || "Player",
               score: p.score || 0,
+              avatar: p.avatar || null,
             })),
           );
         }
@@ -247,6 +266,7 @@ export default function HostSessionPage() {
             id: p.user_id || p.id,
             username: p.nickname || p.name || "Player",
             score: p.score || 0,
+            avatar: p.avatar || null,
           })),
         );
       }
@@ -266,6 +286,7 @@ export default function HostSessionPage() {
                 id: participant.user_id || participant.id,
                 username: participant.nickname || "Player",
                 score: 0,
+                avatar: participant.avatar || null,
               },
             ];
           }
@@ -293,11 +314,20 @@ export default function HostSessionPage() {
     });
 
     socket.on("QuestionStarted", (data: any) => {
+      // Recalibrate server offset every question for accuracy
+      if (data.serverTime) {
+        serverOffsetRef.current = data.serverTime - Date.now();
+      }
       setAnswerStats({});
       setTotalAnswers(0);
 
       questionStartTimeRef.current = data.questionStartTime || Date.now();
       questionDurationRef.current = data.timeLimit || 30;
+
+      if (data.totalQuestions) setTotalQuestions(data.totalQuestions);
+      if (data.currentQuestionIndex !== undefined) setCurrentQuestionIndex(data.currentQuestionIndex);
+      if (data.advanceMode) setAdvanceMode(data.advanceMode);
+      if (data.advanceSeconds) setAdvanceSeconds(data.advanceSeconds);
 
       const adjustedNow = Date.now() + serverOffsetRef.current;
       const untilStart = questionStartTimeRef.current - adjustedNow;
@@ -353,6 +383,7 @@ export default function HostSessionPage() {
                   id: p.user_id || p.id,
                   username: p.nickname || p.name || "Player",
                   score: p.score || 0,
+                  avatar: p.avatar || null,
                 }));
               }
               return prev;
@@ -393,7 +424,10 @@ export default function HostSessionPage() {
       // sessionState === "active"
       const deadline =
         questionStartTimeRef.current + questionDurationRef.current * 1000;
-      const remaining = Math.max(0, Math.ceil((deadline - adjustedNow) / 1000));
+      const remaining = Math.min(
+        questionDurationRef.current,
+        Math.max(0, Math.ceil((deadline - adjustedNow) / 1000)),
+      );
       setTimeRemaining(remaining);
       if (remaining <= 0) {
         clearInterval(tick);
@@ -547,10 +581,11 @@ export default function HostSessionPage() {
   // Auto-advance to next question after leaderboard display
   useEffect(() => {
     if (sessionState !== "leaderboard" || isActionLoading) return;
+    if (advanceMode === "manual") return; // manual mode: teacher clicks Next
 
     autoAdvanceRef.current = setTimeout(() => {
       handleNextQuestion();
-    }, LEADERBOARD_DISPLAY_S * 1000);
+    }, advanceSeconds * 1000);
 
     return () => {
       if (autoAdvanceRef.current) {
@@ -558,7 +593,7 @@ export default function HostSessionPage() {
         autoAdvanceRef.current = null;
       }
     };
-  }, [sessionState, isActionLoading, handleNextQuestion]);
+  }, [sessionState, isActionLoading, handleNextQuestion, advanceMode, advanceSeconds]);
 
   const handleEndSession = async () => {
     try {
@@ -723,10 +758,10 @@ export default function HostSessionPage() {
             </div>
           </header>
 
-          <main className="flex-1 flex flex-col lg:flex-row gap-6 w-full max-w-7xl mx-auto h-full overflow-hidden">
+          <main className="flex-1 flex flex-col lg:flex-row gap-4 sm:gap-6 w-full max-w-7xl mx-auto h-full overflow-hidden">
             {/* Left Col: Code, QR, and Start Action */}
             <div className="flex-[4] flex flex-col gap-6 relative">
-              <div className="bg-deep/70 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex flex-col items-center justify-center relative p-8 h-full rounded-3xl overflow-hidden group">
+              <div className="bg-deep/70 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex flex-col items-center justify-center relative p-4 sm:p-8 h-full rounded-3xl overflow-hidden group">
                 <div
                   className="absolute top-0 right-0 w-64 h-64 bg-pink-500/20 blur-[100px] rounded-full translate-x-1/2 -translate-y-1/2 pointer-events-none animate-pulse"
                   style={{ animationDuration: "4s" }}
@@ -737,7 +772,7 @@ export default function HostSessionPage() {
                 />
 
                 <motion.h2
-                  className="text-4xl md:text-[3.5rem] font-black mb-8 font-display text-white text-center leading-tight z-10"
+                  className="text-2xl sm:text-4xl md:text-[3.5rem] font-black mb-4 sm:mb-8 font-display text-white text-center leading-tight z-10"
                   animate={{ y: [0, -5, 0] }}
                   transition={{
                     duration: 4,
@@ -752,7 +787,7 @@ export default function HostSessionPage() {
                   to play!
                 </motion.h2>
 
-                <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-10 mb-10 w-full max-w-3xl z-10 cartoon-panel-soft rounded-[2rem] p-6 md:px-10 border border-white/20 shadow-2xl relative overflow-hidden">
+                <div className="flex flex-col md:flex-row items-center justify-center gap-4 sm:gap-6 md:gap-10 mb-6 sm:mb-10 w-full max-w-3xl z-10 cartoon-panel-soft rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-6 md:px-10 border border-white/20 shadow-2xl relative overflow-hidden">
                   {/* Subtle background flair */}
                   <div className="absolute top-0 right-0 w-64 h-64 bg-pink-500/10 blur-[80px] rounded-full translate-x-1/2 -translate-y-1/2 pointer-events-none" />
                   <div className="absolute bottom-0 left-0 w-64 h-64 bg-cyan-500/10 blur-[80px] rounded-full -translate-x-1/2 translate-y-1/2 pointer-events-none" />
@@ -765,7 +800,8 @@ export default function HostSessionPage() {
                       className="p-3 bg-white rounded-2xl shadow-lg border-4 border-white/40 hover:scale-105 transition-transform duration-300 relative"
                     >
                       <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/30 to-purple-500/30 rounded-2xl blur-md -z-10 opacity-70" />
-                      <QRCodeSVG value={joinUrl} size={140} />
+                      <QRCodeSVG value={joinUrl} size={100} className="sm:hidden" />
+                      <QRCodeSVG value={joinUrl} size={140} className="hidden sm:block" />
                     </motion.div>
                     <motion.span
                       className="mt-3 text-pink-300 text-[11px] font-black uppercase tracking-widest bg-pink-500/10 px-3 py-1 rounded-full border border-pink-500/30 shadow-[0_0_15px_rgba(236,72,153,0.25)] flex items-center gap-2"
@@ -798,7 +834,7 @@ export default function HostSessionPage() {
                       whileTap={{ scale: 0.98 }}
                     >
                       <motion.span
-                        className="text-6xl md:text-[5.5rem] font-black text-white tracking-[0.15em] drop-shadow-md group-hover:scale-110 transition-transform duration-500 leading-tight mb-4"
+                        className="text-4xl sm:text-6xl md:text-[5.5rem] font-black text-white tracking-[0.1em] sm:tracking-[0.15em] drop-shadow-md group-hover:scale-110 transition-transform duration-500 leading-tight mb-2 sm:mb-4"
                         animate={copied ? { scale: [1, 1.1, 1] } : {}}
                       >
                         {sessionCode}
@@ -840,7 +876,7 @@ export default function HostSessionPage() {
                     className={`absolute -inset-1 bg-gradient-to-r from-pink-600 to-purple-600 rounded-3xl blur opacity-70 group-hover:opacity-100 transition duration-200 group-hover:duration-200 ${players.length > 0 ? "animate-pulse" : "hidden"}`}
                     style={{ animationDuration: "2s" }}
                   ></div>
-                  <div className="relative w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 disabled:from-gray-700 disabled:to-gray-800 disabled:opacity-80 px-8 py-5 rounded-3xl font-black flex justify-center gap-3 items-center text-2xl shadow-[0_8px_20px_rgba(236,72,153,0.3)] transition-all border border-white/20 overflow-hidden group">
+                  <div className="relative w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 disabled:from-gray-700 disabled:to-gray-800 disabled:opacity-80 px-4 sm:px-8 py-3 sm:py-5 rounded-2xl sm:rounded-3xl font-black flex justify-center gap-2 sm:gap-3 items-center text-lg sm:text-2xl shadow-[0_8px_20px_rgba(236,72,153,0.3)] transition-all border border-white/20 overflow-hidden group">
                     <motion.div
                       className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0"
                       animate={players.length > 0 ? { x: [-100, 100] } : {}}
@@ -857,7 +893,7 @@ export default function HostSessionPage() {
             </div>
 
             {/* Right Col: Players Grid */}
-            <div className="flex-[3] relative flex flex-col pt-16 md:pt-0 overflow-visible">
+            <div className="flex-[3] relative flex flex-col pt-4 md:pt-0 overflow-visible">
               {/* Floating Live Activity Feed */}
               <div className="absolute top-0 md:-top-4 right-0 left-0 h-16 flex flex-col justify-end items-end gap-2 z-20 pointer-events-none pr-2">
                 <AnimatePresence>
@@ -894,7 +930,7 @@ export default function HostSessionPage() {
               </div>
 
               <div className="bg-deep/70 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex-1 flex flex-col rounded-3xl overflow-hidden border-t-4 border-t-purple-500/50">
-                <div className="p-6 border-b border-white/10 cartoon-panel-soft flex justify-between items-center z-10 rounded-t-3xl">
+                <div className="p-4 sm:p-6 border-b border-white/10 cartoon-panel-soft flex justify-between items-center z-10 rounded-t-3xl">
                   <h3 className="text-xl font-black text-white flex items-center gap-3 font-display">
                     Players Grid
                   </h3>
@@ -935,11 +971,15 @@ export default function HostSessionPage() {
                             />
                             <div className="relative">
                               <div
-                                className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-black shadow-lg border-2 border-white/30 bg-gradient-to-br ${AVATAR_GRADIENTS[index % AVATAR_GRADIENTS.length]} group-hover:scale-110 group-hover:shadow-[0_0_20px_rgba(168,85,247,0.8)] transition-all relative z-10`}
+                                className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-black shadow-lg border-2 border-white/30 bg-gradient-to-br ${AVATAR_GRADIENTS[index % AVATAR_GRADIENTS.length]} group-hover:scale-110 group-hover:shadow-[0_0_20px_rgba(168,85,247,0.8)] transition-all relative z-10 overflow-hidden`}
                               >
-                                {(p.nickname || p.username || "P")
-                                  .charAt(0)
-                                  .toUpperCase()}
+                                {p.avatar && p.avatar.startsWith("http") ? (
+                                  <Image src={p.avatar} alt={p.nickname || p.username || "P"} fill className="object-cover" sizes="56px" />
+                                ) : p.avatar ? (
+                                  p.avatar
+                                ) : (
+                                  (p.nickname || p.username || "P").charAt(0).toUpperCase()
+                                )}
                               </div>
                               {/* Animated pulse ring on hover */}
                               <motion.div
@@ -1074,7 +1114,7 @@ export default function HostSessionPage() {
     sessionState === "leaderboard"
   ) {
     return (
-      <div className="relative min-h-[100dvh] w-full overflow-hidden flex flex-col font-sans">
+      <div className="relative h-[100dvh] w-full overflow-hidden flex flex-col font-sans">
         <div className="fixed inset-0 z-0 bg-deep pointer-events-none">
           <SpaceBackground />
           {themeImage && (
@@ -1090,26 +1130,26 @@ export default function HostSessionPage() {
           )}
           <div className="absolute inset-0 bg-slate-900/40 mix-blend-multiply z-10" />
         </div>
-        <div className="relative z-10 flex-1 w-full flex flex-col text-white">
+        <div className="relative z-10 flex-1 w-full flex flex-col text-white min-h-0">
           {/* Top Bar */}
-          <header className="cartoon-panel m-3 p-4 shrink-0 z-10 flex justify-between items-center bg-black/30 backdrop-blur-md border border-white/10 rounded-3xl">
-            <div className="flex items-center gap-3">
-              <div className="bg-red-500/20 text-red-400 p-2 rounded-xl border border-red-500/30 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.5)]">
-                <Activity className="w-5 h-5" />
+          <header className="cartoon-panel m-2 sm:m-3 p-2.5 sm:p-4 shrink-0 z-10 flex justify-between items-center bg-black/30 backdrop-blur-md border border-white/10 rounded-2xl sm:rounded-3xl">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="bg-red-500/20 text-red-400 p-1.5 sm:p-2 rounded-lg sm:rounded-xl border border-red-500/30 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.5)]">
+                <Activity className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
-              <h2 className="text-xl font-black font-display gradient-text-pink-cyan tracking-wide">
+              <h2 className="text-base sm:text-xl font-black font-display gradient-text-pink-cyan tracking-wide">
                 Live Quiz
               </h2>
             </div>
 
-            <div className="flex gap-4 items-center">
-              <div className="cartoon-panel-soft px-5 py-2 rounded-2xl flex gap-2 items-center text-sm border-white/10">
-                <Users size={18} className="text-cyan-400" />
-                <span className="font-bold text-white text-lg">
+            <div className="flex gap-2 sm:gap-4 items-center">
+              <div className="cartoon-panel-soft px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl flex gap-1.5 sm:gap-2 items-center text-sm border-white/10">
+                <Users size={16} className="text-cyan-400 sm:[&]:w-[18px] sm:[&]:h-[18px]" />
+                <span className="font-bold text-white text-base sm:text-lg">
                   {players.length}
                 </span>
               </div>
-              {sessionState === "leaderboard" && (
+              {(sessionState === "leaderboard" || (advanceMode === "manual" && sessionState === "leaderboard")) && (
                 <motion.button
                   type="button"
                   whileHover={{ scale: 1.05 }}
@@ -1122,7 +1162,7 @@ export default function HostSessionPage() {
                     handleNextQuestion();
                   }}
                   disabled={isActionLoading}
-                  className="btn-cartoon btn-cartoon-blue px-6 py-2.5 rounded-2xl flex gap-2 items-center font-black shadow-[0_0_20px_rgba(59,130,246,0.6)]"
+                  className="btn-cartoon btn-cartoon-blue px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl flex gap-1.5 sm:gap-2 items-center font-black text-sm sm:text-base shadow-[0_0_20px_rgba(59,130,246,0.6)]"
                 >
                   {isActionLoading ? "Loading..." : "Next Question"}{" "}
                   <ArrowRight className="w-5 h-5" />
@@ -1231,11 +1271,11 @@ export default function HostSessionPage() {
             )}
           </AnimatePresence>
 
-          <main className="flex-1 flex flex-col lg:flex-row gap-3 p-3 lg:p-4 overflow-hidden max-w-[1600px] mx-auto w-full">
+          <main className="flex-1 flex flex-col lg:flex-row gap-3 p-3 lg:p-4 overflow-hidden max-w-[1600px] mx-auto w-full min-h-0">
             {/* Game Board */}
-            <div className="flex-[2.5] flex flex-col relative z-10">
+            <div className="flex-[2.5] flex flex-col relative z-10 min-h-0 overflow-hidden">
               {currentQuestion ? (
-                <div className="flex flex-col gap-2 h-full justify-center bg-black/40 backdrop-blur-xl rounded-[2rem] border-2 border-white/10 p-4 lg:p-5 shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
+                <div className="flex flex-col gap-2 h-full justify-center bg-black/40 backdrop-blur-xl rounded-[2rem] border-2 border-white/10 p-4 lg:p-5 shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-y-auto min-h-0">
                   {/* Header / Info */}
                   <div className="flex justify-between items-center mb-1">
                     <span className="bg-purple-500/20 text-purple-300 px-4 py-1.5 rounded-full font-black tracking-widest uppercase text-sm border border-purple-500/30 shadow-inner">
@@ -1470,14 +1510,14 @@ export default function HostSessionPage() {
                               isCorrect
                                 ? "bg-emerald-500/30 border-2 border-emerald-400 shadow-[0_0_24px_rgba(16,185,129,0.5)] scale-[1.02] z-20"
                                 : isWrong
-                                  ? "bg-gray-800/30 border-2 border-gray-600/40 opacity-40 grayscale"
+                                  ? "bg-gray-800/30 border-2 border-gray-600/40 opacity-60"
                                   : `bg-gradient-to-r ${c.gradient} border-2 ${c.border} ${c.hoverGlow} hover:shadow-lg`
                             }`}
                           >
-                            {/* Reveal Background Fill */}
+                            {/* Reveal Background Fill Bar */}
                             {isReveal && (
                               <motion.div
-                                className={`absolute left-0 bottom-0 top-0 rounded-l-xl ${isCorrect ? "bg-emerald-400/20" : "bg-white/5"}`}
+                                className={`absolute left-0 bottom-0 top-0 rounded-l-xl ${isCorrect ? "bg-emerald-400/25" : "bg-white/[0.07]"}`}
                                 initial={{ width: 0 }}
                                 animate={{ width: `${percentage}%` }}
                                 transition={{ duration: 0.8, ease: "easeOut" }}
@@ -1497,13 +1537,23 @@ export default function HostSessionPage() {
                               </div>
 
                               {isReveal && (
-                                <motion.span
-                                  initial={{ opacity: 0, scale: 0.5 }}
-                                  animate={{ opacity: 1, scale: 1 }}
-                                  className={`font-black text-base tabular-nums shrink-0 ${isCorrect ? "text-emerald-300" : "text-white/60"}`}
-                                >
-                                  {percentage}%
-                                </motion.span>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <motion.span
+                                    initial={{ opacity: 0, scale: 0.5 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className={`font-black text-xl tabular-nums ${isCorrect ? "text-emerald-300" : "text-white/60"}`}
+                                  >
+                                    {percentage}%
+                                  </motion.span>
+                                  <motion.span
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ delay: 0.3 }}
+                                    className="text-xs text-white/40 font-semibold"
+                                  >
+                                    ({optionCount})
+                                  </motion.span>
+                                </div>
                               )}
                             </div>
 
@@ -1519,6 +1569,126 @@ export default function HostSessionPage() {
                         );
                       })}
                     </AnimatePresence>
+
+                    {/* KBC-style Vertical Bar Chart — shown in reveal/leaderboard state */}
+                    {sessionState === "leaderboard" && currentQuestion?.options && totalAnswers > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4, type: "spring", stiffness: 300, damping: 25 }}
+                        className="mt-5 mx-auto w-full max-w-md rounded-2xl overflow-hidden"
+                        style={{
+                          background: "linear-gradient(180deg, rgba(0,20,80,0.9) 0%, rgba(0,8,50,0.95) 100%)",
+                          border: "1px solid rgba(100,160,255,0.2)",
+                          boxShadow: "0 0 40px rgba(30,80,220,0.15), inset 0 1px 0 rgba(255,255,255,0.06)",
+                        }}
+                      >
+                        {/* Header strip */}
+                        <div
+                          className="py-2 px-4 text-center"
+                          style={{
+                            background: "linear-gradient(90deg, rgba(30,80,200,0.3), rgba(100,60,220,0.3), rgba(30,80,200,0.3))",
+                            borderBottom: "1px solid rgba(100,160,255,0.15)",
+                          }}
+                        >
+                          <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-blue-200/70">
+                            📊 Audience Poll
+                          </span>
+                        </div>
+
+                        {/* Bars area */}
+                        <div className="px-6 pt-5 pb-4">
+                          <div className="flex items-end justify-center gap-4 h-40">
+                            {currentQuestion.options.map((opt: any, idx: number) => {
+                              const count = answerStats[opt.id] || 0;
+                              const pct = totalAnswers > 0 ? Math.round((count / totalAnswers) * 100) : 0;
+                              const isCorrectOpt = opt.is_correct;
+                              const barGradients = [
+                                "from-orange-400 via-orange-500 to-orange-600",
+                                "from-blue-400 via-blue-500 to-blue-600",
+                                "from-yellow-400 via-amber-500 to-amber-600",
+                                "from-green-400 via-emerald-500 to-emerald-600",
+                                "from-violet-400 via-purple-500 to-purple-600",
+                                "from-pink-400 via-rose-500 to-rose-600",
+                              ];
+                              const barGlows = [
+                                "rgba(251,146,60,0.5)",
+                                "rgba(96,165,250,0.5)",
+                                "rgba(251,191,36,0.5)",
+                                "rgba(52,211,153,0.5)",
+                                "rgba(167,139,250,0.5)",
+                                "rgba(244,114,182,0.5)",
+                              ];
+                              const gradient = isCorrectOpt
+                                ? "from-emerald-300 via-emerald-400 to-emerald-600"
+                                : barGradients[idx % barGradients.length];
+                              const glow = isCorrectOpt
+                                ? "rgba(52,211,153,0.6)"
+                                : barGlows[idx % barGlows.length];
+                              const barH = pct > 0 ? Math.max(8, pct) : 3;
+                              const letter = String.fromCharCode(65 + idx);
+
+                              return (
+                                <div key={opt.id} className="flex flex-col items-center gap-2 flex-1">
+                                  {/* Percentage label */}
+                                  <motion.span
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.8 + idx * 0.12 }}
+                                    className={`text-lg font-black tabular-nums ${isCorrectOpt ? "text-emerald-300 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "text-white/80"}`}
+                                  >
+                                    {pct}%
+                                  </motion.span>
+
+                                  {/* Bar */}
+                                  <div className="w-full flex justify-center" style={{ height: "100px" }}>
+                                    <div className="w-10 h-full flex items-end">
+                                      <motion.div
+                                        className={`w-full rounded-t-md bg-gradient-to-t ${gradient}`}
+                                        initial={{ height: 0 }}
+                                        animate={{ height: `${barH}%` }}
+                                        transition={{ duration: 0.9, delay: 0.6 + idx * 0.12, ease: "easeOut" }}
+                                        style={{
+                                          minHeight: "3px",
+                                          boxShadow: `0 0 14px ${glow}, inset 0 1px 0 rgba(255,255,255,0.3)`,
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {/* Option letter */}
+                                  <motion.div
+                                    initial={{ opacity: 0, scale: 0.5 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ delay: 0.5 + idx * 0.1, type: "spring" }}
+                                    className={`w-9 h-9 rounded-lg flex items-center justify-center font-black text-sm ${
+                                      isCorrectOpt
+                                        ? "bg-emerald-400 text-emerald-950 shadow-[0_0_14px_rgba(52,211,153,0.6)]"
+                                        : "bg-white/10 text-white/70 border border-white/10"
+                                    }`}
+                                  >
+                                    {letter}
+                                  </motion.div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div
+                          className="py-2 px-4 text-center"
+                          style={{
+                            background: "rgba(255,255,255,0.02)",
+                            borderTop: "1px solid rgba(100,160,255,0.1)",
+                          }}
+                        >
+                          <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">
+                            {totalAnswers} {totalAnswers === 1 ? "vote" : "votes"} cast
+                          </span>
+                        </div>
+                      </motion.div>
+                    )}
                   </div>
 
                   {sessionState === "active" && (
@@ -1569,7 +1739,7 @@ export default function HostSessionPage() {
             </div>
 
             {/* Leaderboard Sidebar */}
-            <div className="flex-1 max-w-sm lg:max-w-md cartoon-panel flex flex-col overflow-hidden bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl z-10 rounded-[2rem]">
+            <div className="flex-1 w-full lg:max-w-md cartoon-panel flex flex-col overflow-hidden bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl z-10 rounded-2xl sm:rounded-[2rem] min-h-0 max-h-[40vh] lg:max-h-none">
               <div className="p-4 border-b border-white/10 flex items-center justify-between bg-gradient-to-b from-white/5 to-transparent">
                 <h3 className="text-xl font-black text-white flex items-center gap-2.5 font-display">
                   <span className="text-2xl drop-shadow-[0_0_10px_rgba(255,215,0,0.8)]">
@@ -1623,9 +1793,13 @@ export default function HostSessionPage() {
                         <div
                           className={`avatar-bubble w-10 h-10 text-base bg-gradient-to-br ${AVATAR_GRADIENTS[index % AVATAR_GRADIENTS.length]} shadow-inner border border-white/20`}
                         >
-                          {(lb.nickname || lb.username)
-                            ?.charAt(0)
-                            .toUpperCase() || "?"}
+                          {lb.avatar && lb.avatar.startsWith("http") ? (
+                            <Image src={lb.avatar} alt={lb.nickname || lb.username || "?"} fill className="object-cover rounded-full" sizes="40px" />
+                          ) : lb.avatar ? (
+                            lb.avatar
+                          ) : (
+                            (lb.nickname || lb.username)?.charAt(0).toUpperCase() || "?"
+                          )}
                         </div>
 
                         <div className="flex-1 min-w-0">
@@ -1820,7 +1994,7 @@ export default function HostSessionPage() {
               <Trophy className="w-9 h-9 md:w-11 md:h-11 text-white drop-shadow-md" />
             </div>
           </motion.div>
-          <h1 className="text-4xl md:text-6xl font-black text-white font-display gradient-text-pink-cyan mb-2 neon-text">
+          <h1 className="text-2xl sm:text-4xl md:text-6xl font-black text-white font-display gradient-text-pink-cyan mb-2 neon-text">
             Quiz Finished!
           </h1>
           <p className="text-purple-200/45 text-sm md:text-lg">
@@ -1874,7 +2048,7 @@ export default function HostSessionPage() {
 
                     {/* Avatar */}
                     <motion.div
-                      className={`${s.avatarSize} rounded-full bg-gradient-to-br ${s.gradient} flex items-center justify-center ${s.fontSize} font-black text-white border-[3px] ${s.border} ${s.glow} mb-2 relative`}
+                      className={`${s.avatarSize} rounded-full bg-gradient-to-br ${s.gradient} flex items-center justify-center ${s.fontSize} font-black text-white border-[3px] ${s.border} ${s.glow} mb-2 relative overflow-hidden`}
                       animate={
                         isFirst
                           ? {
@@ -1890,7 +2064,13 @@ export default function HostSessionPage() {
                         isFirst ? { duration: 2.5, repeat: Infinity } : {}
                       }
                     >
-                      {name.charAt(0).toUpperCase()}
+                      {data.avatar && data.avatar.startsWith("http") ? (
+                        <Image src={data.avatar} alt={name} fill className="object-cover" sizes="120px" />
+                      ) : data.avatar ? (
+                        data.avatar
+                      ) : (
+                        name.charAt(0).toUpperCase()
+                      )}
                       {/* Medal badge */}
                       <span className="absolute -bottom-1 -right-1 text-base md:text-lg drop-shadow-lg">
                         {s.medal}
@@ -2010,11 +2190,15 @@ export default function HostSessionPage() {
                       {i + 4}
                     </span>
                     <div
-                      className={`w-8 h-8 rounded-full bg-gradient-to-br ${["from-purple-500 to-indigo-600", "from-pink-500 to-rose-600", "from-cyan-500 to-blue-600", "from-amber-500 to-orange-600", "from-green-500 to-emerald-600"][i % 5]} flex items-center justify-center text-xs font-bold text-white`}
+                      className={`w-8 h-8 rounded-full bg-gradient-to-br ${["from-purple-500 to-indigo-600", "from-pink-500 to-rose-600", "from-cyan-500 to-blue-600", "from-amber-500 to-orange-600", "from-green-500 to-emerald-600"][i % 5]} flex items-center justify-center text-xs font-bold text-white relative overflow-hidden`}
                     >
-                      {(lb.nickname || lb.username || "?")
-                        .charAt(0)
-                        .toUpperCase()}
+                      {lb.avatar && lb.avatar.startsWith("http") ? (
+                        <Image src={lb.avatar} alt={lb.nickname || lb.username || "?"} fill className="object-cover" sizes="32px" />
+                      ) : lb.avatar ? (
+                        lb.avatar
+                      ) : (
+                        (lb.nickname || lb.username || "?").charAt(0).toUpperCase()
+                      )}
                     </div>
                     <span className="text-sm font-medium text-white/70">
                       {lb.nickname || lb.username}
@@ -2046,7 +2230,7 @@ export default function HostSessionPage() {
           whileHover={{ scale: 1.04, y: -2 }}
           whileTap={{ scale: 0.96 }}
           onClick={() => router.replace("/teacher/dashboard")}
-          className="btn-cartoon btn-cartoon-pink px-8 py-4 rounded-2xl font-bold text-lg"
+          className="btn-cartoon btn-cartoon-pink px-5 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold text-sm sm:text-lg"
         >
           Return to Dashboard
         </motion.button>

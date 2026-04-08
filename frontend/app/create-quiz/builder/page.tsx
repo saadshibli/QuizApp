@@ -48,6 +48,8 @@ interface QuizSetup {
   theme: string;
   timeLimit: number;
   points: number;
+  advance_mode?: "auto" | "manual";
+  advance_seconds?: number;
 }
 
 import { THEMES } from "../themes";
@@ -94,8 +96,10 @@ function BuilderPageContent() {
           title: q.title,
           description: q.description || "",
           theme: q.theme || "none",
-          timeLimit: 30,
-          points: 100,
+          timeLimit: q.questions?.[0]?.time_limit || 30,
+          points: q.questions?.[0]?.points || 100,
+          advance_mode: q.advance_mode || "auto",
+          advance_seconds: q.advance_seconds || 5,
         });
         const loadedQuestions = q.questions.map((qq: any) => {
           const opts = (qq.options || []).map((o: any) => ({
@@ -263,6 +267,8 @@ function BuilderPageContent() {
         title: setup?.title || "Untitled",
         description: setup?.description || "",
         theme: setup?.theme || "none",
+        advance_mode: setup?.advance_mode || "auto",
+        advance_seconds: setup?.advance_seconds || 5,
       };
 
       let targetQuizId = quizIdParam;
@@ -504,7 +510,7 @@ function BuilderPageContent() {
       {/* ═══ Main Content ═══ */}
       <main className="isolate relative z-10 flex-1 overflow-hidden flex flex-col w-full max-w-6xl mx-auto px-4 lg:px-6 py-3 gap-3">
         {/* ─── Control Bar: Tabs + Time/Points + Delete ─── */}
-        <div className="flex items-center gap-3 flex-wrap shrink-0 bg-slate-900/92 border border-slate-700/70 rounded-2xl px-4 py-2.5 shadow-[0_10px_24px_rgba(2,6,23,0.35)]">
+        <div className="flex items-center gap-3 flex-wrap shrink-0 bg-slate-900/92 border border-slate-700/70 rounded-2xl px-2.5 sm:px-4 py-2.5 shadow-[0_10px_24px_rgba(2,6,23,0.35)]">
           {/* Question navigation pills */}
           <div className="flex items-center gap-2">
             {questions.map((q, idx) => (
@@ -514,7 +520,7 @@ function BuilderPageContent() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setCurrentIndex(idx)}
-                className={`flex-shrink-0 px-4 py-2 rounded-xl font-bold text-sm transition-all ${
+                className={`flex-shrink-0 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl font-bold text-sm transition-all ${
                   currentIndex === idx
                     ? "bg-sky-300 text-slate-950 shadow-[0_8px_18px_rgba(125,211,252,0.35)]"
                     : "bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white border border-slate-600"
@@ -528,7 +534,7 @@ function BuilderPageContent() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleAddQuestion}
-              className="flex-shrink-0 px-4 py-2 rounded-xl border-2 border-dashed border-slate-500 bg-slate-800/70 hover:bg-slate-700 transition-all font-bold text-sm text-slate-300 hover:text-white flex items-center gap-1.5"
+              className="flex-shrink-0 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl border-2 border-dashed border-slate-500 bg-slate-800/70 hover:bg-slate-700 transition-all font-bold text-sm text-slate-300 hover:text-white flex items-center gap-1.5"
             >
               <Plus className="w-4 h-4" /> New
             </motion.button>
@@ -538,9 +544,9 @@ function BuilderPageContent() {
           <div className="flex-1" />
 
           {/* Time + Points + Delete Controls */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             {/* Time Control */}
-            <div className="flex items-center gap-2 bg-slate-800 rounded-xl px-3 py-2.5 border border-slate-600 min-w-[190px] shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
+            <div className="flex items-center gap-2 bg-slate-800 rounded-xl px-3 py-2.5 border border-slate-600 min-w-0 sm:min-w-[190px] shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
               <Clock className="w-4.5 h-4.5 text-cyan-300 shrink-0" />
               <span className="text-sm font-bold text-white/85 whitespace-nowrap">
                 Time:
@@ -597,7 +603,7 @@ function BuilderPageContent() {
             </div>
 
             {/* Points Control */}
-            <div className="flex items-center gap-2 bg-slate-800 rounded-xl px-3 py-2.5 border border-slate-600 min-w-[210px] shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
+            <div className="flex items-center gap-2 bg-slate-800 rounded-xl px-3 py-2.5 border border-slate-600 min-w-0 sm:min-w-[210px] shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
               <Star className="w-4.5 h-4.5 text-amber-300 shrink-0" />
               <span className="text-sm font-bold text-white/85 whitespace-nowrap">
                 Points:
@@ -666,8 +672,8 @@ function BuilderPageContent() {
         </div>
 
         {/* ─── Unified Content Panel ─── */}
-        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto hide-scrollbar pb-32 isolate [will-change:transform] [backface-visibility:hidden]">
-          <div className="shrink-0 flex flex-col gap-5 rounded-3xl p-6 lg:p-7 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-slate-700/70 shadow-[0_20px_46px_rgba(2,6,23,0.5)] group transition-colors">
+        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto hide-scrollbar pb-20 sm:pb-32 isolate [will-change:transform] [backface-visibility:hidden]">
+          <div className="shrink-0 flex flex-col gap-5 rounded-3xl p-3 sm:p-6 lg:p-7 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-slate-700/70 shadow-[0_20px_46px_rgba(2,6,23,0.5)] group transition-colors">
             <div className="flex flex-col gap-6">
               {/* Question Text Input */}
               <div>
@@ -687,7 +693,7 @@ function BuilderPageContent() {
                   }
                   placeholder="Type your quiz question here..."
                   rows={2}
-                  className="w-full bg-slate-900 border border-slate-600 rounded-2xl px-5 py-4 text-white text-2xl md:text-3xl font-black placeholder:text-slate-500 resize-none outline-none focus:outline-none focus-visible:outline-none focus:border-slate-600 focus-visible:border-slate-600 focus:ring-0 focus-visible:ring-0 focus:shadow-none focus-visible:shadow-none transition-colors leading-snug"
+                  className="w-full bg-slate-900 border border-slate-600 rounded-2xl px-3 py-3 sm:px-5 sm:py-4 text-white text-xl sm:text-2xl md:text-3xl font-black placeholder:text-slate-500 resize-none outline-none focus:outline-none focus-visible:outline-none focus:border-slate-600 focus-visible:border-slate-600 focus:ring-0 focus-visible:ring-0 focus:shadow-none focus-visible:shadow-none transition-colors leading-snug"
                 />
               </div>
 
@@ -812,7 +818,7 @@ function BuilderPageContent() {
                     </motion.button>
                   )}
 
-                  <div className="lg:col-span-2 rounded-2xl px-4 py-3 bg-slate-800/90 border border-slate-600 text-white shadow-[inset_0_0_14px_rgba(148,163,184,0.08)]">
+                  <div className="sm:col-span-2 rounded-2xl px-4 py-3 bg-slate-800/90 border border-slate-600 text-white shadow-[inset_0_0_14px_rgba(148,163,184,0.08)]">
                     <div className="flex items-center justify-between gap-3 overflow-x-auto whitespace-nowrap">
                       <div className="flex items-center gap-2 text-base font-semibold shrink-0">
                         <CheckCircle2 className="w-4 h-4 text-emerald-300 shrink-0" />
@@ -913,7 +919,7 @@ function BuilderPageContent() {
                     className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 text-white font-extrabold border border-sky-300/50 shadow-[0_12px_26px_rgba(14,165,233,0.35)]"
                   >
                     <Plus className="w-4 h-4" />
-                    <span className="whitespace-nowrap">New Question</span>
+                    <span className="hidden sm:inline whitespace-nowrap">New Question</span>
                   </motion.button>
                 </div>
               </div>

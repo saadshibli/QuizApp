@@ -82,13 +82,12 @@ export default function LoginPage() {
           ? respData
           : respData?.error || "Login failed";
       setError(errMsg);
-    } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="space-bg min-h-screen overflow-hidden relative">
+    <div className="space-bg min-h-screen overflow-y-auto overflow-x-hidden relative">
       <SpaceBackground />
 
       <Link href="/">
@@ -102,7 +101,7 @@ export default function LoginPage() {
         </motion.button>
       </Link>
 
-      <main className="relative z-10 min-h-screen flex items-center px-4 sm:px-6 lg:px-10 py-12 sm:py-10">
+      <main className="relative z-10 min-h-screen flex items-center px-3 sm:px-6 lg:px-10 py-16 sm:py-10">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_70%_45%,rgba(6,182,212,0.08)_0%,rgba(10,8,40,0.55)_45%,rgba(7,6,30,0.8)_100%)]" />
 
         <div className="w-full max-w-7xl mx-auto grid lg:grid-cols-2 gap-8 lg:gap-10 items-center">
@@ -195,7 +194,7 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <div className="rounded-[24px] bg-[#130d33]/96 p-6 sm:p-7 md:p-8 min-h-[580px] flex flex-col justify-center shadow-[0_30px_70px_rgba(8,7,33,0.56)]">
+            <div className="rounded-[20px] sm:rounded-[24px] bg-[#130d33]/96 p-5 sm:p-7 md:p-8 min-h-0 sm:min-h-[580px] flex flex-col justify-center shadow-[0_30px_70px_rgba(8,7,33,0.56)]">
               <div className="h-[3px] w-28 rounded-full bg-gradient-to-r from-[#8b5cf6] via-[#6366f1] to-[#06b6d4] mb-5" />
 
               <div className="flex items-center gap-3 mb-4">
@@ -203,7 +202,7 @@ export default function LoginPage() {
                   <Sparkles className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h2 className="title-cartoon text-[30px] leading-none text-white">
+                  <h2 className="title-cartoon text-2xl sm:text-[30px] leading-none text-white">
                     Welcome Back
                   </h2>
                   <p className="text-[#b4aed3] text-sm font-medium mt-1">
@@ -235,7 +234,7 @@ export default function LoginPage() {
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="you@school.edu"
                       disabled={isLoading}
-                      className="w-full h-[52px] rounded-xl border border-white/15 bg-white/[0.07] pl-12 pr-4 text-white placeholder:text-white/40 outline-none transition-all duration-200 hover:bg-white/[0.10] focus:border-cyan-400/60 focus:bg-white/[0.09] focus:shadow-[0_0_0_4px_rgba(34,211,238,0.14)]"
+                      className="w-full h-12 sm:h-[52px] rounded-xl border border-white/15 bg-white/[0.07] pl-12 pr-4 text-white placeholder:text-white/40 outline-none transition-all duration-200 hover:bg-white/[0.10] focus:border-cyan-400/60 focus:bg-white/[0.09] focus:shadow-[0_0_0_4px_rgba(34,211,238,0.14)]"
                     />
                   </div>
                 </div>
@@ -252,7 +251,7 @@ export default function LoginPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Enter your password"
                       disabled={isLoading}
-                      className="w-full h-[52px] rounded-xl border border-white/15 bg-white/[0.07] pl-12 pr-12 text-white placeholder:text-white/40 outline-none transition-all duration-200 hover:bg-white/[0.10] focus:border-cyan-400/60 focus:bg-white/[0.09] focus:shadow-[0_0_0_4px_rgba(34,211,238,0.14)]"
+                      className="w-full h-12 sm:h-[52px] rounded-xl border border-white/15 bg-white/[0.07] pl-12 pr-12 text-white placeholder:text-white/40 outline-none transition-all duration-200 hover:bg-white/[0.10] focus:border-cyan-400/60 focus:bg-white/[0.09] focus:shadow-[0_0_0_4px_rgba(34,211,238,0.14)]"
                     />
                     <button
                       type="button"
@@ -276,7 +275,7 @@ export default function LoginPage() {
                   whileTap={{ scale: 0.985 }}
                   disabled={isLoading}
                   type="submit"
-                  className="w-full h-[54px] rounded-xl bg-gradient-to-r from-[#7c3aed] via-[#6366f1] to-[#2563eb] text-white font-extrabold tracking-wide shadow-[0_16px_34px_rgba(79,70,229,0.46)] hover:shadow-[0_22px_44px_rgba(79,70,229,0.62)] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 relative overflow-hidden group"
+                  className="w-full h-12 sm:h-[54px] rounded-xl bg-gradient-to-r from-[#7c3aed] via-[#6366f1] to-[#2563eb] text-white font-extrabold tracking-wide shadow-[0_16px_34px_rgba(79,70,229,0.46)] hover:shadow-[0_22px_44px_rgba(79,70,229,0.62)] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 relative overflow-hidden group text-sm sm:text-base"
                 >
                   <span className="pointer-events-none absolute inset-0 opacity-0 bg-[linear-gradient(110deg,rgba(255,255,255,0)_25%,rgba(255,255,255,0.28)_50%,rgba(255,255,255,0)_75%)] transition-opacity duration-200 group-hover:opacity-100" />
                   {isLoading ? (
@@ -307,15 +306,6 @@ export default function LoginPage() {
                     className="text-[#22d3ee] hover:text-cyan-200 font-bold transition-colors"
                   >
                     Create one
-                  </Link>
-                </p>
-                <p className="text-xs text-white/40">
-                  Student?{" "}
-                  <Link
-                    href="/join-quiz"
-                    className="text-[#22d3ee] font-semibold hover:text-cyan-200 transition-colors"
-                  >
-                    Join a quiz as guest
                   </Link>
                 </p>
               </div>

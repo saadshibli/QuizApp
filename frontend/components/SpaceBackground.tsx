@@ -183,20 +183,18 @@ export function Stars() {
   return (
     <>
       {STAR_DATA.map((s, i) => (
-        <motion.div
+        <div
           key={i}
-          className={`absolute ${s.sz} pointer-events-none z-0`}
-          style={{ left: s.x, top: s.y }}
-          animate={{ opacity: [0.2, 1, 0.2], scale: [0.7, 1.4, 0.7] }}
-          transition={{
-            duration: 2 + i * 0.25,
-            repeat: Infinity,
-            delay: s.d,
-            ease: "easeInOut",
+          className={`absolute ${s.sz} pointer-events-none z-0 animate-star-twinkle`}
+          style={{
+            left: s.x,
+            top: s.y,
+            animationDelay: `${s.d}s`,
+            animationDuration: `${2 + i * 0.25}s`,
           }}
         >
           <StarSparkle className="w-full h-full opacity-80" />
-        </motion.div>
+        </div>
       ))}
     </>
   );
@@ -210,20 +208,12 @@ export function ShootingStar({
   positionClass: string;
 }) {
   return (
-    <motion.div
-      className={`absolute w-1.5 h-1.5 rounded-full pointer-events-none z-0 shooting-star-dot ${positionClass}`}
-      initial={{ opacity: 0, x: 0, y: 0 }}
-      animate={{ opacity: [0, 1, 1, 0], x: [0, 150, 260], y: [0, 75, 130] }}
-      transition={{
-        duration: 2,
-        repeat: Infinity,
-        delay,
-        repeatDelay: 5,
-        ease: "easeOut",
-      }}
+    <div
+      className={`absolute w-1.5 h-1.5 rounded-full pointer-events-none z-0 shooting-star-dot animate-shooting-star ${positionClass}`}
+      style={{ animationDelay: `${delay}s` }}
     >
       <div className="absolute top-0 right-0 w-20 h-[2px] shooting-star-trail" />
-    </motion.div>
+    </div>
   );
 }
 
@@ -364,42 +354,26 @@ export function MiniPlanet({
 export default function SpaceBackground() {
   return (
     <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-      {/* Background Animated Blobs — matching home page theme */}
-      <motion.div
-        className="absolute top-[-25%] left-[-15%] w-[700px] h-[700px] rounded-full"
+      {/* Background Animated Blobs — CSS animations for performance */}
+      <div
+        className="absolute top-[-25%] left-[-15%] w-[700px] h-[700px] rounded-full will-change-transform animate-blob-1"
         style={{
           background:
             "radial-gradient(circle, rgba(147,51,234,0.45) 0%, transparent 70%)",
         }}
-        animate={{ x: [0, 60, 0], y: [0, -50, 0] }}
-        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
       />
-      <motion.div
-        className="absolute top-[10%] right-[-18%] w-[550px] h-[550px] rounded-full"
+      <div
+        className="absolute top-[10%] right-[-18%] w-[550px] h-[550px] rounded-full will-change-transform animate-blob-2"
         style={{
           background:
             "radial-gradient(circle, rgba(236,72,153,0.3) 0%, transparent 70%)",
         }}
-        animate={{ x: [0, -50, 0], y: [0, 60, 0] }}
-        transition={{
-          duration: 20,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 3,
-        }}
       />
-      <motion.div
-        className="absolute bottom-[-15%] left-[25%] w-[650px] h-[650px] rounded-full"
+      <div
+        className="absolute bottom-[-15%] left-[25%] w-[650px] h-[650px] rounded-full will-change-transform animate-blob-3"
         style={{
           background:
             "radial-gradient(circle, rgba(37,99,235,0.35) 0%, transparent 70%)",
-        }}
-        animate={{ x: [0, 40, 0], y: [0, -35, 0] }}
-        transition={{
-          duration: 22,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 6,
         }}
       />
 
@@ -408,27 +382,14 @@ export default function SpaceBackground() {
       <ShootingStar delay={6} positionClass="top-[35%] left-[65%]" />
       <ShootingStar delay={9} positionClass="top-[60%] left-[80%]" />
 
-      {/* Floating Elements */}
-      <motion.div
-        className="absolute top-[12%] right-[10%] w-16 md:w-24 opacity-60"
-        animate={{ y: [0, -15, 0], rotate: [0, 10, -5, 0] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-      >
+      {/* Floating Elements — CSS animations */}
+      <div className="absolute top-[12%] right-[10%] w-16 md:w-24 opacity-60 will-change-transform animate-float-1">
         <MiniPlanet color1="#c084fc" color2="#7e22ce" ringColor="#e879f9" />
-      </motion.div>
+      </div>
 
-      <motion.div
-        className="absolute bottom-[20%] left-[5%] w-12 md:w-16 opacity-50"
-        animate={{ y: [0, 20, 0], rotate: [0, -10, 5, 0] }}
-        transition={{
-          duration: 10,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 1,
-        }}
-      >
+      <div className="absolute bottom-[20%] left-[5%] w-12 md:w-16 opacity-50 will-change-transform animate-float-2">
         <MiniPlanet color1="#38bdf8" color2="#0369a1" ringColor="#7dd3fc" />
-      </motion.div>
+      </div>
     </div>
   );
 }

@@ -109,7 +109,18 @@ class SessionRepository {
       [sessionId, userId, nickname],
     );
 
-    return result.rows[0];
+    const row = result.rows[0];
+
+    // Fetch avatar from users table
+    const userResult = await query(
+      `SELECT avatar FROM users WHERE id = $1`,
+      [userId],
+    );
+    if (userResult.rows[0]) {
+      row.avatar = userResult.rows[0].avatar;
+    }
+
+    return row;
   }
 
   /**
@@ -117,8 +128,10 @@ class SessionRepository {
    */
   static async getParticipant(sessionId, userId) {
     const result = await query(
-      `SELECT id, session_id, user_id, nickname, score
-       FROM participants WHERE session_id = $1 AND user_id = $2`,
+      `SELECT p.id, p.session_id, p.user_id, p.nickname, p.score, u.avatar
+       FROM participants p
+       LEFT JOIN users u ON u.id = p.user_id
+       WHERE p.session_id = $1 AND p.user_id = $2`,
       [sessionId, userId],
     );
 
@@ -130,9 +143,11 @@ class SessionRepository {
    */
   static async getSessionParticipants(sessionId) {
     const result = await query(
-      `SELECT id, session_id, user_id, nickname, score
-       FROM participants WHERE session_id = $1
-       ORDER BY score DESC`,
+      `SELECT p.id, p.session_id, p.user_id, p.nickname, p.score, u.avatar
+       FROM participants p
+       LEFT JOIN users u ON u.id = p.user_id
+       WHERE p.session_id = $1
+       ORDER BY p.score DESC`,
       [sessionId],
     );
 
@@ -236,13 +251,15 @@ class SessionRepository {
     const result = await query(
       `SELECT l.id, l.session_id, l.participant_id, l.rank, l.total_score,
               p.nickname, p.user_id,
+              u.avatar,
               COALESCE(SUM(a.response_time), 0) AS total_response_time,
               COUNT(a.id) AS answers_count
        FROM leaderboard l
        JOIN participants p ON l.participant_id = p.id
+       LEFT JOIN users u ON p.user_id = u.id
        LEFT JOIN answers a ON a.participant_id = p.id
        WHERE l.session_id = $1
-       GROUP BY l.id, l.session_id, l.participant_id, l.rank, l.total_score, p.nickname, p.user_id
+       GROUP BY l.id, l.session_id, l.participant_id, l.rank, l.total_score, p.nickname, p.user_id, u.avatar
        ORDER BY l.rank ASC`,
       [sessionId],
     );

@@ -338,24 +338,38 @@ export default function TeacherDashboard() {
           animate={{ opacity: 1, y: 0 }}
           className="border-b border-white/5 bg-[#0a0920]/40 backdrop-blur-sm"
         >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl md:text-4xl font-black font-display tracking-tight text-white">
+          <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-3xl md:text-4xl font-black font-display tracking-tight text-white truncate">
                 My Dashboard
               </h1>
-              <p className="text-[#a8a3c7] text-sm mt-1">
+              <p className="text-[#a8a3c7] text-xs sm:text-sm mt-0.5 sm:mt-1 truncate">
                 Welcome back, {user?.name}
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+              <Link href="/profile">
+                <motion.div
+                  whileHover={{ scale: 1.08 }}
+                  className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500/30 to-cyan-500/30 flex items-center justify-center border border-white/15 overflow-hidden cursor-pointer"
+                >
+                  {user?.avatar && user.avatar.startsWith("http") ? (
+                    <Image src={user.avatar} alt="" width={40} height={40} className="w-full h-full object-cover" />
+                  ) : user?.avatar ? (
+                    <span className="text-xl leading-none">{user.avatar}</span>
+                  ) : (
+                    <Users className="w-5 h-5 text-white/60" />
+                  )}
+                </motion.div>
+              </Link>
               <motion.div
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.98 }}
               >
                 <Link
                   href="/create-quiz"
-                  className="btn-cartoon btn-cartoon-pink flex items-center gap-2 py-3 px-6 rounded-xl text-sm font-bold transition-all duration-300 group"
+                  className="btn-cartoon btn-cartoon-pink flex items-center gap-1.5 sm:gap-2 py-2 sm:py-3 px-3 sm:px-6 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 group"
                 >
                   <motion.div
                     className="relative"
@@ -373,7 +387,7 @@ export default function TeacherDashboard() {
                 onClick={handleLogout}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.98 }}
-                className="btn-cartoon btn-cartoon-outline p-3 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 group"
+                className="btn-cartoon btn-cartoon-outline p-2 sm:p-3 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 group"
                 title="Logout"
               >
                 <motion.div
@@ -394,8 +408,8 @@ export default function TeacherDashboard() {
           transition={{ delay: 0.1 }}
           className=""
         >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-3">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-5 sm:pt-8 pb-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-5">
               {[
                 {
                   icon: <BookOpen className="w-8 h-8" />,
@@ -440,20 +454,20 @@ export default function TeacherDashboard() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.15 + idx * 0.05 }}
                   whileHover={{ scale: 1.02 }}
-                  className={`rounded-2xl p-6 border ${stat.borderColor} bg-gradient-to-br ${stat.gradient} flex items-center gap-4 hover:border-white/30 transition-all duration-300 group`}
+                  className={`rounded-xl sm:rounded-2xl p-3 sm:p-6 border ${stat.borderColor} bg-gradient-to-br ${stat.gradient} flex items-center gap-2.5 sm:gap-4 hover:border-white/30 transition-all duration-300 group`}
                 >
                   <motion.div
                     whileHover={{ rotate: 10, scale: 1.1 }}
                     transition={{ type: "spring", stiffness: 300 }}
-                    className={`p-4 rounded-xl ${stat.iconBg} flex-shrink-0 border ${stat.borderColor} ${stat.glowColor} backdrop-blur-sm`}
+                    className={`p-2.5 sm:p-4 rounded-lg sm:rounded-xl ${stat.iconBg} flex-shrink-0 border ${stat.borderColor} ${stat.glowColor} backdrop-blur-sm`}
                   >
-                    <div className={`${stat.iconColor}`}>{stat.icon}</div>
+                    <div className={`${stat.iconColor} [&>svg]:w-5 [&>svg]:h-5 sm:[&>svg]:w-8 sm:[&>svg]:h-8`}>{stat.icon}</div>
                   </motion.div>
                   <div>
-                    <p className="text-[#a8a3c7] text-xs font-semibold uppercase tracking-wider">
+                    <p className="text-[#a8a3c7] text-[10px] sm:text-xs font-semibold uppercase tracking-wider">
                       {stat.label}
                     </p>
-                    <p className="text-3xl font-black text-white font-display mt-1">
+                    <p className="text-xl sm:text-3xl font-black text-white font-display mt-0.5 sm:mt-1">
                       {stat.value}
                     </p>
                   </div>
@@ -464,7 +478,7 @@ export default function TeacherDashboard() {
         </motion.div>
 
         {/* MAIN CONTENT SECTION */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-16">
+        <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-3 pb-16">
           {/* Section header */}
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -538,7 +552,7 @@ export default function TeacherDashboard() {
             </motion.div>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                 <AnimatePresence mode="popLayout">
                   {paginatedQuizzes.map((quiz, idx) => {
                     const effectiveTheme = resolveEffectiveTheme(quiz);
@@ -692,9 +706,9 @@ export default function TeacherDashboard() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
-                  className="flex items-center justify-between mt-8 px-6 py-4 backdrop-blur-sm rounded-2xl border border-white/5 bg-gradient-to-br from-white/[0.04] to-white/[0.02]"
+                  className="flex items-center justify-between mt-6 sm:mt-8 px-3 sm:px-6 py-3 sm:py-4 backdrop-blur-sm rounded-xl sm:rounded-2xl border border-white/5 bg-gradient-to-br from-white/[0.04] to-white/[0.02]"
                 >
-                  <p className="text-sm text-[#a8a3c7]">
+                  <p className="text-xs sm:text-sm text-[#a8a3c7] hidden sm:block">
                     Showing{" "}
                     <span className="font-semibold text-white">
                       {(currentPage - 1) * itemsPerPage + 1}

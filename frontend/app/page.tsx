@@ -337,7 +337,7 @@ export default function Home() {
           initial={{ opacity: 0, y: -14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="flex-shrink-0 flex items-center justify-between px-7 sm:px-12 lg:px-16 py-3"
+          className="flex-shrink-0 flex items-center justify-between px-4 sm:px-12 lg:px-16 py-3"
         >
           <div />
           <Link href="/login">
@@ -353,7 +353,7 @@ export default function Home() {
         </motion.header>
 
         {/* -- Content: flex-1, centered -- */}
-        <main className="flex-1 flex flex-col items-center justify-center px-4 sm:px-8 pb-4 pt-4">
+        <main className="flex-1 flex flex-col items-center justify-center px-3 sm:px-8 pb-4 pt-4">
           <div className="flex flex-col items-center justify-center gap-4 sm:gap-5 max-w-4xl mx-auto w-full">
             {/* -- Logo -- */}
             <motion.div
@@ -395,7 +395,7 @@ export default function Home() {
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.08 }}
-              className="title-cartoon mt-2 sm:mt-4 text-3xl sm:text-4xl md:text-[3rem] lg:text-[3.5rem] leading-[1.15] sm:leading-[1.2] text-center max-w-3xl flex flex-col gap-1 sm:gap-2"
+              className="title-cartoon mt-2 sm:mt-4 text-2xl sm:text-3xl md:text-[3rem] lg:text-[3.5rem] leading-[1.15] sm:leading-[1.2] text-center max-w-3xl flex flex-col gap-1 sm:gap-2"
             >
               <span className="text-white">Interactive Quizzes</span>
               <span className="hero-gradient-text">With Real Energy</span>
@@ -424,7 +424,7 @@ export default function Home() {
               <motion.div
                 whileHover={{ scale: 1.06, y: -3 }}
                 whileTap={{ scale: 0.95 }}
-                className="btn-cartoon btn-cartoon-pink px-8 py-3.5 text-base sm:text-lg font-bold rounded-2xl inline-flex items-center justify-center"
+                className="btn-cartoon btn-cartoon-pink px-5 sm:px-8 py-3 sm:py-3.5 text-sm sm:text-lg font-bold rounded-2xl inline-flex items-center justify-center"
               >
                 Create Account
                 <ArrowRight className="w-5 h-5 ml-2" />
@@ -434,7 +434,7 @@ export default function Home() {
               <motion.div
                 whileHover={{ scale: 1.06, y: -3 }}
                 whileTap={{ scale: 0.95 }}
-                className="group btn-cartoon btn-cartoon-outline px-8 py-3.5 text-base sm:text-lg font-bold rounded-2xl inline-flex items-center justify-center relative overflow-hidden border-2 border-cyan-400/40 hover:border-cyan-300/70 hover:shadow-[0_0_28px_rgba(34,211,238,0.3)] transition-all duration-300"
+                className="group btn-cartoon btn-cartoon-outline px-5 sm:px-8 py-3 sm:py-3.5 text-sm sm:text-lg font-bold rounded-2xl inline-flex items-center justify-center relative overflow-hidden border-2 border-cyan-400/40 hover:border-cyan-300/70 hover:shadow-[0_0_28px_rgba(34,211,238,0.3)] transition-all duration-300"
               >
                 <motion.div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-400/10 to-cyan-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 <Play className="w-5 h-5 fill-current mr-2.5 relative z-10 group-hover:scale-110 transition-transform" />

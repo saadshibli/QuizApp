@@ -175,19 +175,19 @@ export default function AdminDashboard() {
     <div className="space-bg min-h-screen">
       <SpaceBackground />
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
         {/* Compact top bar */}
         <motion.header
           initial={{ opacity: 0, y: -15 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex items-center justify-between mb-6"
         >
-          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
             <div className="w-11 h-11 bg-gradient-to-br from-red-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-500/25 border border-white/15">
               <Shield className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl md:text-2xl font-black font-display tracking-tight text-white">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-black font-display tracking-tight text-white">
                 Admin Panel
               </h1>
               <p className="text-[#6b6590] text-xs font-medium">

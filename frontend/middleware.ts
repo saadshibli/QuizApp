@@ -50,6 +50,16 @@ export function middleware(req: NextRequest) {
     ) {
       return NextResponse.redirect(new URL("/login", req.url));
     }
+
+    // /join-quiz, /quiz-player, /profile — any authenticated user
+    if (
+      (pathname.startsWith("/join-quiz") ||
+        pathname.startsWith("/quiz-player") ||
+        pathname.startsWith("/profile")) &&
+      !role
+    ) {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
   } catch {
     // If token manipulation fails or malformed
     return NextResponse.redirect(new URL("/login", req.url));
@@ -66,5 +76,8 @@ export const config = {
     "/student/:path*",
     "/create-quiz/:path*",
     "/session/:path*",
+    "/join-quiz/:path*",
+    "/quiz-player/:path*",
+    "/profile/:path*",
   ],
 };

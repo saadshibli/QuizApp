@@ -2,7 +2,6 @@
 const SessionController = require("../controllers/sessionController");
 const {
   authenticate,
-  optionalAuthenticate,
   authorize,
 } = require("../middleware/auth");
 const { validate, schemas } = require("../middleware/validation");
@@ -21,7 +20,7 @@ router.post(
 router.post(
   "/join",
   joinLimiter,
-  optionalAuthenticate,
+  authenticate,
   validate(schemas.joinSession, "body"),
   SessionController.joinSession,
 );

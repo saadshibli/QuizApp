@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS quizzes (
     'none','light','dark','colorful','space','arctic','biology','ocean','retro','sunset','forest','galaxy','candy','minimal','neon',
     'chemistry','cyberpunk','english','geography','history','jungle','maths','midnight','physics','sea','sunlight','underwater','volcano'
   )),
+  advance_mode VARCHAR(10) DEFAULT 'auto' CHECK (advance_mode IN ('auto', 'manual')),
+  advance_seconds INTEGER DEFAULT 5 CHECK (advance_seconds >= 3 AND advance_seconds <= 60),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -120,3 +122,7 @@ CREATE INDEX IF NOT EXISTS idx_participants_user_id ON participants(user_id);
 CREATE INDEX IF NOT EXISTS idx_answers_participant_id ON answers(participant_id);
 CREATE INDEX IF NOT EXISTS idx_answers_question_id ON answers(question_id);
 CREATE INDEX IF NOT EXISTS idx_leaderboard_session_id ON leaderboard(session_id);
+
+-- Add advance_mode columns to existing quizzes tables
+ALTER TABLE IF EXISTS quizzes ADD COLUMN IF NOT EXISTS advance_mode VARCHAR(10) DEFAULT 'auto';
+ALTER TABLE IF EXISTS quizzes ADD COLUMN IF NOT EXISTS advance_seconds INTEGER DEFAULT 5;

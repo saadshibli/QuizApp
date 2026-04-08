@@ -15,7 +15,7 @@ class AuthService {
    * Register a new user
    */
   static async register(registerData) {
-    const { name, email, password, role } = registerData;
+    const { name, email, password, role, avatar } = registerData;
 
     // Check if user already exists
     const existingUser = await UserRepository.findByEmail(email);
@@ -32,6 +32,7 @@ class AuthService {
       email,
       passwordHash,
       role,
+      avatar: avatar || null,
     });
 
     // Generate token
@@ -49,6 +50,7 @@ class AuthService {
         name: user.name,
         email: user.email,
         role: user.role,
+        avatar: user.avatar,
       },
     };
   }
@@ -101,6 +103,17 @@ class AuthService {
       throw ApiError.notFound("User not found");
     }
 
+    return user;
+  }
+
+  /**
+   * Update user profile
+   */
+  static async updateProfile(userId, updateData) {
+    const user = await UserRepository.updateUser(userId, updateData);
+    if (!user) {
+      throw ApiError.notFound("User not found");
+    }
     return user;
   }
 }

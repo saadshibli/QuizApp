@@ -12,13 +12,13 @@ class QuizRepository {
    * Create a new quiz
    */
   static async createQuiz(quizData) {
-    const { title, description, teacherId, theme = "none" } = quizData;
+    const { title, description, teacherId, theme = "none", advance_mode = "auto", advance_seconds = 5 } = quizData;
 
     const result = await query(
-      `INSERT INTO quizzes (title, description, teacher_id, theme, created_at)
-       VALUES ($1, $2, $3, $4, NOW())
-       RETURNING id, title, description, teacher_id, theme, created_at`,
-      [title, description, teacherId, theme],
+      `INSERT INTO quizzes (title, description, teacher_id, theme, advance_mode, advance_seconds, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+       RETURNING id, title, description, teacher_id, theme, advance_mode, advance_seconds, created_at`,
+      [title, description, teacherId, theme, advance_mode, advance_seconds],
     );
 
     return result.rows[0];
@@ -29,7 +29,7 @@ class QuizRepository {
    */
   static async getQuizById(quizId) {
     const quizResult = await query(
-      `SELECT id, title, description, teacher_id, theme, created_at
+      `SELECT id, title, description, teacher_id, theme, advance_mode, advance_seconds, created_at
        FROM quizzes WHERE id = $1`,
       [quizId],
     );
@@ -102,16 +102,18 @@ class QuizRepository {
    * Update quiz
    */
   static async updateQuiz(quizId, updateData) {
-    const { title, description, theme } = updateData;
+    const { title, description, theme, advance_mode, advance_seconds } = updateData;
 
     const result = await query(
       `UPDATE quizzes
        SET title = COALESCE($2, title),
            description = COALESCE($3, description),
-           theme = COALESCE($4, theme)
+           theme = COALESCE($4, theme),
+           advance_mode = COALESCE($5, advance_mode),
+           advance_seconds = COALESCE($6, advance_seconds)
        WHERE id = $1
-       RETURNING id, title, description, teacher_id, theme, created_at`,
-      [quizId, title, description, theme],
+       RETURNING id, title, description, teacher_id, theme, advance_mode, advance_seconds, created_at`,
+      [quizId, title, description, theme, advance_mode, advance_seconds],
     );
 
     return result.rows[0] || null;

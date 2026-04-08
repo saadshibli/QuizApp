@@ -331,6 +331,7 @@ function initializeSocketHandlers(io) {
             nickname: entry.nickname,
             score: entry.total_score,
             totalResponseTime: Number(entry.total_response_time) || 0,
+            avatar: entry.avatar || null,
           })),
         });
 
@@ -397,6 +398,23 @@ function initializeSocketHandlers(io) {
         const isFirstQuestion = !sessionData.hasStartedFirstQuestion;
         sessionData.hasStartedFirstQuestion = true;
 
+        // Fetch quiz to get totalQuestions and advance settings
+        const session = await SessionRepository.getSessionById(parseInt(sessionId));
+        let totalQuestions = 0;
+        let currentQuestionIndex = 0;
+        let advanceMode = "auto";
+        let advanceSeconds = 5;
+        if (session) {
+          const quiz = await QuizRepository.getQuizById(session.quiz_id);
+          if (quiz) {
+            totalQuestions = quiz.questions ? quiz.questions.length : 0;
+            currentQuestionIndex = quiz.questions ? quiz.questions.findIndex(q => q.id === question.id) : 0;
+            if (currentQuestionIndex < 0) currentQuestionIndex = 0;
+            advanceMode = quiz.advance_mode || "auto";
+            advanceSeconds = quiz.advance_seconds || 5;
+          }
+        }
+
         // questionStartTime = when the question timer actually begins
         // For first question, add delay for the 5s startup countdown
         const questionStartTime = isFirstQuestion
@@ -416,13 +434,29 @@ function initializeSocketHandlers(io) {
           timeLimit * 1000 +
           GRACE_MS +
           AUTO_END_BUFFER_MS;
-        sessionData.autoEndTimer = setTimeout(() => {
+        sessionData.autoEndTimer = setTimeout(async () => {
           console.log(
             `[Socket] Auto-ending question ${question.id} in session ${sessionId} (host timeout)`,
           );
+          // Fetch advance settings for auto-ended question
+          let aeAdvanceMode = "auto";
+          let aeAdvanceSeconds = 5;
+          try {
+            const aeSession = await SessionRepository.getSessionById(parseInt(sessionId));
+            if (aeSession) {
+              const aeQuiz = await QuizRepository.getQuizById(aeSession.quiz_id);
+              if (aeQuiz) {
+                aeAdvanceMode = aeQuiz.advance_mode || "auto";
+                aeAdvanceSeconds = aeQuiz.advance_seconds || 5;
+              }
+            }
+          } catch (e) { /* use defaults */ }
           io.to(`session:${sessionId}`).emit("QuestionEnded", {
             correctOptionId: null,
             autoEnded: true,
+            serverTime: Date.now(),
+            advanceMode: aeAdvanceMode,
+            advanceSeconds: aeAdvanceSeconds,
           });
           if (sessionData.currentQuestion) {
             sessionData.currentQuestion = null;
@@ -439,6 +473,11 @@ function initializeSocketHandlers(io) {
           timeLimit: timeLimit,
           points: question.points,
           questionStartTime: questionStartTime,
+          serverTime: now,
+          totalQuestions: totalQuestions,
+          currentQuestionIndex: currentQuestionIndex,
+          advanceMode: advanceMode,
+          advanceSeconds: advanceSeconds,
         });
 
         console.log(
@@ -477,8 +516,23 @@ function initializeSocketHandlers(io) {
           sessionData.currentQuestion = null;
         }
 
+        // Fetch advance settings from quiz
+        let advanceMode = "auto";
+        let advanceSeconds = 5;
+        const session = await SessionRepository.getSessionById(parseInt(sessionId));
+        if (session) {
+          const quiz = await QuizRepository.getQuizById(session.quiz_id);
+          if (quiz) {
+            advanceMode = quiz.advance_mode || "auto";
+            advanceSeconds = quiz.advance_seconds || 5;
+          }
+        }
+
         io.to(`session:${sessionId}`).emit("QuestionEnded", {
           correctOptionId,
+          serverTime: Date.now(),
+          advanceMode,
+          advanceSeconds,
         });
 
         console.log(`[Socket] Question ended in session ${sessionId}`);
