@@ -209,10 +209,17 @@ class SessionRepository {
    */
   static async updateLeaderboard(sessionId) {
     // Use a single query with ON CONFLICT to atomically upsert rankings
+    // Rank by highest score first, then lowest total response time (faster = better)
     const result = await query(
       `INSERT INTO leaderboard (session_id, participant_id, rank, total_score)
-       SELECT $1, id, ROW_NUMBER() OVER (ORDER BY score DESC, id ASC), score
-       FROM participants WHERE session_id = $1
+       SELECT $1, p.id,
+              ROW_NUMBER() OVER (
+                ORDER BY p.score DESC,
+                COALESCE((SELECT SUM(a.response_time) FROM answers a WHERE a.participant_id = p.id), 0) ASC,
+                p.id ASC
+              ),
+              p.score
+       FROM participants p WHERE p.session_id = $1
        ON CONFLICT (session_id, participant_id)
        DO UPDATE SET rank = EXCLUDED.rank, total_score = EXCLUDED.total_score, updated_at = NOW()
        RETURNING id, session_id, participant_id, rank, total_score`,

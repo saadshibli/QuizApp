@@ -237,12 +237,12 @@ class SessionService {
       pointsAwarded = Math.round(question.points * scorePercent);
     }
 
-    // Record answer
+    // Record answer — only store response time for correct answers
     const answer = await SessionRepository.recordAnswer({
       participantId: participant.id,
       questionId,
       optionId,
-      responseTime,
+      responseTime: isCorrect ? responseTime : 0,
       pointsAwarded,
     });
 

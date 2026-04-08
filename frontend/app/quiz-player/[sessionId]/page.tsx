@@ -1599,7 +1599,7 @@ export default function QuizPlayerPage() {
                   className="flex-1 flex items-center justify-center px-3"
                 >
                   <div
-                    className="w-full max-w-md rounded-3xl p-5 md:p-7"
+                    className="w-full max-w-5xl rounded-5xl p-9 md:p-12"
                     style={{
                       background:
                         "linear-gradient(180deg, rgba(10,10,30,0.82), rgba(10,10,30,0.92))",
@@ -1609,7 +1609,7 @@ export default function QuizPlayerPage() {
                         "0 16px 64px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
                     }}
                   >
-                    {/* Result header — only if the user answered */}
+                    {/* Result header */}
                     {answerFeedback && (
                       <motion.div
                         initial={{ scale: 0, rotate: -180 }}
@@ -1619,7 +1619,7 @@ export default function QuizPlayerPage() {
                           stiffness: 200,
                           damping: 15,
                         }}
-                        className="text-center mb-4"
+                        className="text-center mb-5"
                       >
                         {answerFeedback.isCorrect ? (
                           <motion.div
@@ -1666,7 +1666,7 @@ export default function QuizPlayerPage() {
                     )}
 
                     {!answerFeedback && (
-                      <div className="text-center mb-4">
+                      <div className="text-center mb-5">
                         <div
                           className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-purple-400 to-indigo-600 flex items-center justify-center mb-2"
                           style={{ boxShadow: "0 0 30px rgba(139,92,246,0.3)" }}
@@ -1682,10 +1682,10 @@ export default function QuizPlayerPage() {
                       </div>
                     )}
 
-                    {/* Stats row: Points + Time + Speed */}
+                    {/* Stats row: Points + Time */}
                     {answerFeedback && (
                       <motion.div
-                        initial={{ opacity: 0, y: 15 }}
+                        initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.2 }}
                         className="flex items-center justify-center gap-3 mb-5"
@@ -1728,11 +1728,6 @@ export default function QuizPlayerPage() {
                             <span
                               className={`text-xs font-black uppercase tracking-wider ${speedColor}`}
                             >
-                              {speedRatio <= 0.15
-                                ? "⚡"
-                                : speedRatio <= 0.3
-                                  ? "🔥"
-                                  : ""}{" "}
                               {speedLabel}
                             </span>
                           </div>
@@ -1740,13 +1735,13 @@ export default function QuizPlayerPage() {
                       </motion.div>
                     )}
 
-                    {/* Podium-style top 3 */}
+                    {/* Top players + your rank */}
                     {top3.length > 0 && (
                       <motion.div
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.4 }}
-                        className="rounded-2xl p-4 mb-3"
+                        transition={{ delay: 0.35 }}
+                        className="rounded-2xl p-4 mb-4"
                         style={{
                           background:
                             "linear-gradient(180deg, rgba(15,15,35,0.7), rgba(15,15,35,0.85))",
@@ -1758,7 +1753,7 @@ export default function QuizPlayerPage() {
                           <Trophy className="w-3.5 h-3.5 text-amber-400" /> Top
                           Players
                         </h3>
-                        <div className="space-y-1.5">
+                        <div className="space-y-2">
                           {top3.map((entry: any, i: number) => {
                             const isMe = entry.nickname === user?.name;
                             const mc = reviewMedalColors[i];
@@ -1768,7 +1763,7 @@ export default function QuizPlayerPage() {
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{
-                                  delay: 0.5 + i * 0.1,
+                                  delay: 0.4 + i * 0.1,
                                   type: "spring",
                                   stiffness: 400,
                                   damping: 25,
@@ -1814,14 +1809,15 @@ export default function QuizPlayerPage() {
                           })}
                         </div>
 
+                        {/* Show user's rank if not in top 3 */}
                         {myEntry && myRankIndex >= 3 && (
                           <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            transition={{ delay: 0.9 }}
-                            className="mt-2 pt-2 border-t border-white/[0.06]"
+                            transition={{ delay: 0.8 }}
+                            className="mt-2.5 pt-2.5 border-t border-white/[0.06]"
                           >
-                            <div className="flex items-center gap-3 py-2 px-3 rounded-xl bg-purple-500/15 ring-1 ring-purple-400/25">
+                            <div className="flex items-center gap-3 py-2.5 px-3 rounded-xl bg-purple-500/15 ring-1 ring-purple-400/25">
                               <span className="text-white/40 font-mono font-bold text-xs w-6 text-center">
                                 #{myRankIndex + 1}
                               </span>
@@ -1845,19 +1841,55 @@ export default function QuizPlayerPage() {
                       </motion.div>
                     )}
 
-                    {/* Waiting for teacher to advance */}
-                    <div className="flex items-center justify-center gap-2 text-purple-200/90">
-                      <motion.div
-                        animate={{ opacity: [0.5, 1, 0.5] }}
-                        transition={{ duration: 1.5, repeat: Infinity }}
-                        className="flex items-center gap-2"
-                      >
-                        <Clock className="w-4 h-4 text-purple-300" />
-                        <span className="text-xs font-medium">
-                          Waiting for next question...
-                        </span>
-                      </motion.div>
-                    </div>
+                    {/* Next question countdown */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 }}
+                      className="rounded-xl p-4 text-center"
+                      style={{
+                        background: timeRemaining > 0
+                          ? "linear-gradient(135deg, rgba(139,92,246,0.15), rgba(59,130,246,0.1))"
+                          : "rgba(255,255,255,0.03)",
+                        border: timeRemaining > 0
+                          ? "1px solid rgba(139,92,246,0.3)"
+                          : "1px solid rgba(255,255,255,0.06)",
+                      }}
+                    >
+                      {timeRemaining > 0 ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <span className="text-xs font-bold uppercase tracking-widest text-purple-300/80">
+                            Next question in
+                          </span>
+                          <motion.span
+                            key={timeRemaining}
+                            initial={{ scale: 1.4, opacity: 0.6 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className="text-4xl font-black font-mono text-white drop-shadow-[0_0_20px_rgba(139,92,246,0.5)]"
+                          >
+                            {timeRemaining}
+                          </motion.span>
+                          <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mt-1">
+                            <motion.div
+                              className="h-full rounded-full bg-gradient-to-r from-purple-500 to-cyan-400"
+                              animate={{ width: `${Math.max(0, (1 - timeRemaining / 5) * 100)}%` }}
+                              transition={{ duration: 0.5, ease: "linear" }}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <motion.div
+                          animate={{ opacity: [0.5, 1, 0.5] }}
+                          transition={{ duration: 1.5, repeat: Infinity }}
+                          className="flex items-center justify-center gap-2"
+                        >
+                          <Clock className="w-4 h-4 text-purple-300" />
+                          <span className="text-sm font-medium text-purple-200/90">
+                            Waiting for next question...
+                          </span>
+                        </motion.div>
+                      )}
+                    </motion.div>
                   </div>
                 </motion.div>
               );
