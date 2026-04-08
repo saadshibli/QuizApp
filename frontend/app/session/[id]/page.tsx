@@ -1131,6 +1131,106 @@ export default function HostSessionPage() {
             </div>
           </header>
 
+          {/* ═══ Start Countdown Overlay Modal ═══ */}
+          <AnimatePresence>
+            {sessionState === "startCountdown" && (
+              <motion.div
+                key="start-countdown-overlay"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="fixed inset-0 z-50 flex items-center justify-center"
+                style={{ background: "rgba(2,6,23,0.85)", backdropFilter: "blur(12px)" }}
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.85, y: 30 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: -20 }}
+                  transition={{ type: "spring", stiffness: 280, damping: 22 }}
+                  className="w-full max-w-lg text-center px-4"
+                >
+                  <motion.div
+                    className="relative p-10 md:p-12 rounded-3xl border-2 border-cyan-300/60 bg-slate-950/90"
+                    animate={{ scale: 1 + (5 - startupCountdown) * 0.012 }}
+                    transition={{ duration: 0.3, ease: "easeOut" }}
+                    style={{
+                      boxShadow:
+                        "0 26px 80px rgba(2,6,23,0.86), inset 0 1px 0 rgba(255,255,255,0.16), 0 0 80px rgba(34,211,238,0.15)",
+                    }}
+                  >
+                    <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-70 rounded-t-3xl" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-cyan-200/[0.09] to-black/30 rounded-3xl pointer-events-none" />
+
+                    {/* Pulsing clock icon */}
+                    <div className="relative w-32 h-32 mx-auto mb-6">
+                      <motion.div
+                        className="absolute inset-0 rounded-full"
+                        animate={{ scale: [1, 1.5, 1.5], opacity: [0.4, 0, 0] }}
+                        transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
+                        style={{ border: "3px solid rgba(34,211,238,0.5)" }}
+                      />
+                      <motion.div
+                        className="absolute inset-0 rounded-full"
+                        animate={{ scale: [1, 1.3, 1.3], opacity: [0.3, 0, 0] }}
+                        transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut", delay: 0.3 }}
+                        style={{ border: "2px solid rgba(34,211,238,0.3)" }}
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <motion.div
+                          animate={{ scale: [1, 1.08, 1], rotate: [0, 5, 0, -5, 0] }}
+                          transition={{ duration: 1.1, repeat: Infinity }}
+                          className="w-24 h-24 rounded-full flex items-center justify-center"
+                          style={{
+                            background: "linear-gradient(135deg, rgba(34,211,238,0.34), rgba(59,130,246,0.44))",
+                            boxShadow: "0 0 30px rgba(34,211,238,0.28), inset 0 0 20px rgba(255,255,255,0.08)",
+                          }}
+                        >
+                          <Clock className="w-12 h-12 text-white drop-shadow-lg" />
+                        </motion.div>
+                      </div>
+                    </div>
+
+                    {/* Countdown text */}
+                    <motion.h2
+                      key={startupCountdown}
+                      initial={{ scale: 1.4, opacity: 0.6 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ duration: 0.25 }}
+                      className="text-5xl md:text-6xl font-black font-display text-white mb-3 relative z-10"
+                      style={{
+                        textShadow: "0 0 40px rgba(34,211,238,0.5), 0 6px 28px rgba(0,0,0,0.9)",
+                      }}
+                    >
+                      {startupCountdown}
+                    </motion.h2>
+                    <p className="text-cyan-300 text-xl md:text-2xl font-bold relative z-10 tracking-wide mb-2">
+                      Get Ready!
+                    </p>
+                    <p className="text-cyan-50/70 text-base relative z-10 font-medium">
+                      Question {currentQuestionIndex + 1} is about to launch 🚀
+                    </p>
+
+                    {/* Progress bar */}
+                    <div className="relative z-10 mt-6">
+                      <div className="flex items-center justify-between text-xs font-black uppercase tracking-[0.16em] text-cyan-50/80 mb-2">
+                        <span>Launch Progress</span>
+                        <span>{5 - startupCountdown}/5</span>
+                      </div>
+                      <div className="h-3 w-full rounded-full bg-black/55 overflow-hidden border border-cyan-100/30 shadow-[inset_0_0_10px_rgba(0,0,0,0.6)]">
+                        <motion.div
+                          className="h-full rounded-full bg-gradient-to-r from-cyan-300 via-blue-400 to-indigo-400 shadow-[0_0_14px_rgba(56,189,248,0.75)]"
+                          animate={{ width: `${((5 - startupCountdown) / 5) * 100}%` }}
+                          transition={{ duration: 0.35, ease: "easeOut" }}
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <main className="flex-1 flex flex-col lg:flex-row gap-3 p-3 lg:p-4 overflow-hidden max-w-[1600px] mx-auto w-full">
             {/* Game Board */}
             <div className="flex-[2.5] flex flex-col relative z-10">
@@ -1276,19 +1376,6 @@ export default function HostSessionPage() {
                       {currentQuestion.text}
                     </h3>
                   </div>
-
-                  {/* Startup Countdown Label */}
-                  {sessionState === "startCountdown" && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="text-center mb-2"
-                    >
-                      <p className="text-cyan-300 text-sm font-bold font-display tracking-wide">
-                        Get ready... Match starts soon! 🚀
-                      </p>
-                    </motion.div>
-                  )}
 
                   {/* Options Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 lg:gap-3">
