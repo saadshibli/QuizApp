@@ -1149,7 +1149,7 @@ export default function HostSessionPage() {
                   {players.length}
                 </span>
               </div>
-              {(sessionState === "leaderboard" || (advanceMode === "manual" && sessionState === "leaderboard")) && (
+              {sessionState === "leaderboard" && (
                 <motion.button
                   type="button"
                   whileHover={{ scale: 1.05 }}
