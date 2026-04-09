@@ -79,6 +79,8 @@ export default function HostSessionPage() {
   const questionStartTimeRef = useRef<number>(0);
   const questionDurationRef = useRef<number>(30);
   const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
+  const sessionStateRef = useRef(sessionState);
+  sessionStateRef.current = sessionState;
 
   const joinUrl =
     typeof window !== "undefined" && sessionCode
@@ -200,6 +202,42 @@ export default function HostSessionPage() {
               }
             })
             .catch(() => {});
+        } else if (status === "Active") {
+          // Teacher refreshed mid-quiz — recover current question state
+          const currentQuestionId = res.data?.session?.current_question;
+          const quizId = res.data?.session?.quiz_id;
+          if (currentQuestionId && quizId) {
+            quizAPI
+              .getQuiz(quizId)
+              .then((quizRes) => {
+                if (cancelled) return;
+                const questions = quizRes.data?.questions || [];
+                const currentQ = questions.find(
+                  (q: any) => q.id === currentQuestionId,
+                );
+                if (currentQ) {
+                  const qIndex = questions.findIndex(
+                    (q: any) => q.id === currentQuestionId,
+                  );
+                  setCurrentQuestion({
+                    text: currentQ.question_text,
+                    options: currentQ.options?.map((o: any) => ({
+                      id: o.id,
+                      text: o.option_text,
+                      is_correct: o.is_correct,
+                    })),
+                    id: currentQ.id,
+                    points: currentQ.points || 100,
+                    time_limit: currentQ.time_limit || 30,
+                  });
+                  setCurrentQuestionIndex(qIndex >= 0 ? qIndex : 0);
+                  setTotalQuestions(questions.length);
+                  // Go to leaderboard state since we can't recover timer mid-question
+                  setSessionState("leaderboard");
+                }
+              })
+              .catch(() => {});
+          }
         }
       })
       .catch(() => {
@@ -335,6 +373,16 @@ export default function HostSessionPage() {
       toast("Session ended!", { icon: "🏁" });
     });
 
+    // Handle server-side auto-end of a question (safety net if host timer drifts)
+    socket.on("QuestionEnded", (data: any) => {
+      if (sessionStateRef.current === "active") {
+        setSessionState("leaderboard");
+      }
+      if (data?.leaderboard) {
+        setLeaderboard(normalizeLeaderboard(data.leaderboard));
+      }
+    });
+
     return () => {
       socket.off("authenticated", onReAuthenticated);
       socket.off("HostSessionJoined");
@@ -345,6 +393,7 @@ export default function HostSessionPage() {
       socket.off("QuestionStarted");
       socket.off("LeaderboardUpdate");
       socket.off("QuizEnded");
+      socket.off("QuestionEnded");
     };
   }, [token, sessionId]);
 
@@ -1284,11 +1333,112 @@ export default function HostSessionPage() {
             <div className="flex-[2.5] flex flex-col relative z-10 min-h-0 overflow-hidden">
               {currentQuestion ? (
                 <div className="flex flex-col gap-2 h-full justify-center bg-black/40 backdrop-blur-xl rounded-[2rem] border-2 border-white/10 p-4 lg:p-5 shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-y-auto min-h-0">
-                  {/* Header / Info */}
+                  {/* Header / Info with Circular Timer */}
                   <div className="flex justify-between items-center mb-1">
                     <span className="bg-purple-500/20 text-purple-300 px-4 py-1.5 rounded-full font-black tracking-widest uppercase text-sm border border-purple-500/30 shadow-inner">
                       Q.{currentQuestionIndex + 1}
                     </span>
+
+                    {/* Circular Timer — inline at top */}
+                    {(sessionState === "active" ||
+                      sessionState === "startCountdown") &&
+                      (() => {
+                        const hostDuration = currentQuestion.time_limit || 30;
+                        const hostTimerVal =
+                          sessionState === "startCountdown"
+                            ? startupCountdown
+                            : timeRemaining;
+                        const hostMaxVal =
+                          sessionState === "startCountdown" ? 5 : hostDuration;
+                        const hostProgress = Math.max(
+                          0,
+                          Math.min(100, (hostTimerVal / hostMaxVal) * 100),
+                        );
+                        const ringRadius = 42;
+                        const ringCircumference = 2 * Math.PI * ringRadius;
+                        const ringOffset =
+                          ringCircumference -
+                          (hostProgress / 100) * ringCircumference;
+                        const tColor =
+                          hostProgress > 60
+                            ? {
+                                stroke: "#22c55e",
+                                text: "text-emerald-200",
+                                glow: "rgba(34,197,94,0.7)",
+                                bg: "border-emerald-400/60",
+                              }
+                            : hostProgress > 30
+                              ? {
+                                  stroke: "#eab308",
+                                  text: "text-yellow-200",
+                                  glow: "rgba(234,179,8,0.7)",
+                                  bg: "border-yellow-400/60",
+                                }
+                              : {
+                                  stroke: "#ef4444",
+                                  text: "text-red-200",
+                                  glow: "rgba(239,68,68,0.9)",
+                                  bg: "border-red-400/60",
+                                };
+                        if (sessionState === "startCountdown") {
+                          Object.assign(tColor, {
+                            stroke: "#22d3ee",
+                            text: "text-cyan-200",
+                            glow: "rgba(34,211,238,0.7)",
+                            bg: "border-cyan-400/60",
+                          });
+                        }
+                        return (
+                          <div
+                            className={`relative z-20 w-24 h-24 lg:w-28 lg:h-28 -mt-3 rounded-full border-2 ${tColor.bg} bg-gradient-to-br from-slate-900/93 via-slate-800/88 to-indigo-950/84 backdrop-blur-xl flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.5)]`}
+                          >
+                            <svg
+                              className="absolute inset-0 w-full h-full -rotate-90"
+                              viewBox="0 0 100 100"
+                            >
+                              <circle
+                                cx="50"
+                                cy="50"
+                                r={ringRadius}
+                                fill="none"
+                                stroke="rgba(255,255,255,0.12)"
+                                strokeWidth="8"
+                              />
+                              <motion.circle
+                                cx="50"
+                                cy="50"
+                                r={ringRadius}
+                                fill="none"
+                                stroke={tColor.stroke}
+                                strokeWidth="8"
+                                strokeLinecap="round"
+                                strokeDasharray={ringCircumference}
+                                animate={{ strokeDashoffset: ringOffset }}
+                                transition={{ duration: 0.45, ease: "easeOut" }}
+                                style={{
+                                  filter: `drop-shadow(0 0 8px ${tColor.glow})`,
+                                }}
+                              />
+                            </svg>
+                            <div className="relative z-10 text-center">
+                              <motion.div
+                                key={hostTimerVal}
+                                initial={{ scale: 1.3, opacity: 0.7 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                transition={{ duration: 0.2 }}
+                                className={`font-mono text-3xl lg:text-4xl font-black leading-none ${tColor.text}`}
+                              >
+                                {hostTimerVal}
+                              </motion.div>
+                              <div className="text-[10px] uppercase tracking-widest text-white/70 font-bold mt-0.5">
+                                {sessionState === "startCountdown"
+                                  ? "start"
+                                  : "sec"}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2 bg-amber-500/10 px-3 py-1.5 rounded-full border border-amber-500/20">
@@ -1313,155 +1463,6 @@ export default function HostSessionPage() {
                       />
                     </div>
                   )}
-
-                  {/* Centered Circular Timer — same as student view */}
-                  {(sessionState === "active" ||
-                    sessionState === "startCountdown") &&
-                    (() => {
-                      const hostDuration = currentQuestion.time_limit || 30;
-                      const hostTimerVal =
-                        sessionState === "startCountdown"
-                          ? startupCountdown
-                          : timeRemaining;
-                      const hostMaxVal =
-                        sessionState === "startCountdown" ? 5 : hostDuration;
-                      const hostProgress = Math.max(
-                        0,
-                        Math.min(100, (hostTimerVal / hostMaxVal) * 100),
-                      );
-                      const ringRadius = 56;
-                      const ringCircumference = 2 * Math.PI * ringRadius;
-                      const ringOffset =
-                        ringCircumference -
-                        (hostProgress / 100) * ringCircumference;
-                      const tColor =
-                        hostProgress > 60
-                          ? {
-                              stroke: "#22c55e",
-                              text: "text-emerald-200",
-                              glow: "rgba(34,197,94,0.7)",
-                              bg: "border-emerald-400/60",
-                            }
-                          : hostProgress > 30
-                            ? {
-                                stroke: "#eab308",
-                                text: "text-yellow-200",
-                                glow: "rgba(234,179,8,0.7)",
-                                bg: "border-yellow-400/60",
-                              }
-                            : {
-                                stroke: "#ef4444",
-                                text: "text-red-200",
-                                glow: "rgba(239,68,68,0.9)",
-                                bg: "border-red-400/60",
-                              };
-                      if (sessionState === "startCountdown") {
-                        Object.assign(tColor, {
-                          stroke: "#22d3ee",
-                          text: "text-cyan-200",
-                          glow: "rgba(34,211,238,0.7)",
-                          bg: "border-cyan-400/60",
-                        });
-                      }
-                      return (
-                        <div className="flex justify-center my-3">
-                          <motion.div
-                            className={`relative z-20 w-28 h-28 lg:w-32 lg:h-32 rounded-full border-2 ${tColor.bg} bg-gradient-to-br from-slate-900/93 via-slate-800/88 to-indigo-950/84 backdrop-blur-xl flex items-center justify-center shadow-[0_18px_42px_rgba(0,0,0,0.62)]`}
-                            animate={
-                              hostTimerVal <= 5 && sessionState === "active"
-                                ? {
-                                    scale: [1, 1.1, 1],
-                                    x: [0, -4, 4, -4, 4, 0],
-                                  }
-                                : hostTimerVal <= 10 &&
-                                    sessionState === "active"
-                                  ? { scale: [1, 1.04, 1] }
-                                  : { scale: 1 }
-                            }
-                            transition={{
-                              duration: hostTimerVal <= 5 ? 0.5 : 0.8,
-                              repeat: Infinity,
-                            }}
-                          >
-                            {/* Urgency pulse ring */}
-                            {hostTimerVal <= 5 && sessionState === "active" && (
-                              <motion.div
-                                className="absolute inset-0 rounded-full border-[3px] border-red-400/80"
-                                animate={{
-                                  scale: [1, 1.25],
-                                  opacity: [0.9, 0],
-                                }}
-                                transition={{
-                                  duration: 0.7,
-                                  repeat: Infinity,
-                                  ease: "easeOut",
-                                }}
-                              />
-                            )}
-                            {hostTimerVal <= 10 &&
-                              hostTimerVal > 5 &&
-                              sessionState === "active" && (
-                                <motion.div
-                                  className="absolute inset-0 rounded-full border-2 border-yellow-400/50"
-                                  animate={{
-                                    scale: [1, 1.15],
-                                    opacity: [0.6, 0],
-                                  }}
-                                  transition={{
-                                    duration: 1.2,
-                                    repeat: Infinity,
-                                    ease: "easeOut",
-                                  }}
-                                />
-                              )}
-                            <svg
-                              className="absolute inset-0 w-full h-full -rotate-90"
-                              viewBox="0 0 140 140"
-                            >
-                              <circle
-                                cx="70"
-                                cy="70"
-                                r={ringRadius}
-                                fill="none"
-                                stroke="rgba(255,255,255,0.12)"
-                                strokeWidth="10"
-                              />
-                              <motion.circle
-                                cx="70"
-                                cy="70"
-                                r={ringRadius}
-                                fill="none"
-                                stroke={tColor.stroke}
-                                strokeWidth="10"
-                                strokeLinecap="round"
-                                strokeDasharray={ringCircumference}
-                                animate={{ strokeDashoffset: ringOffset }}
-                                transition={{ duration: 0.45, ease: "easeOut" }}
-                                style={{
-                                  filter: `drop-shadow(0 0 12px ${tColor.glow})`,
-                                }}
-                              />
-                            </svg>
-                            <div className="relative z-10 text-center">
-                              <motion.div
-                                key={hostTimerVal}
-                                initial={{ scale: 1.3, opacity: 0.7 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                transition={{ duration: 0.2 }}
-                                className={`font-mono text-4xl lg:text-5xl font-black leading-none ${tColor.text}`}
-                              >
-                                {hostTimerVal}
-                              </motion.div>
-                              <div className="text-[11px] uppercase tracking-widest text-white/70 font-bold mt-1">
-                                {sessionState === "startCountdown"
-                                  ? "start"
-                                  : "seconds"}
-                              </div>
-                            </div>
-                          </motion.div>
-                        </div>
-                      );
-                    })()}
 
                   {/* Question Title */}
                   <div className="flex items-center justify-center py-1 lg:py-2">
@@ -1567,13 +1568,19 @@ export default function HostSessionPage() {
                                   : `bg-gradient-to-r ${c.gradient} border-2 ${c.border} ${c.hoverGlow} hover:shadow-lg`
                             }`}
                           >
-                            {/* Reveal Background Fill Bar */}
-                            {isReveal && (
+                            {/* Live / Reveal Background Fill Bar */}
+                            {(isReveal || (!isReveal && totalAnswers > 0)) && (
                               <motion.div
-                                className={`absolute left-0 bottom-0 top-0 rounded-l-xl ${isCorrect ? "bg-emerald-400/25" : "bg-white/[0.07]"}`}
+                                className={`absolute left-0 bottom-0 top-0 rounded-l-xl ${
+                                  isReveal
+                                    ? isCorrect
+                                      ? "bg-emerald-400/25"
+                                      : "bg-white/[0.10]"
+                                    : "bg-white/[0.15]"
+                                }`}
                                 initial={{ width: 0 }}
                                 animate={{ width: `${percentage}%` }}
-                                transition={{ duration: 0.8, ease: "easeOut" }}
+                                transition={{ duration: 0.7, ease: "easeOut" }}
                               />
                             )}
 
@@ -1608,6 +1615,16 @@ export default function HostSessionPage() {
                                   </motion.span>
                                 </div>
                               )}
+                              {!isReveal && totalAnswers > 0 && (
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="font-bold text-sm tabular-nums text-white/50">
+                                    {percentage}%
+                                  </span>
+                                  <span className="text-xs text-white/30 font-semibold">
+                                    ({optionCount})
+                                  </span>
+                                </div>
+                              )}
                             </div>
 
                             {/* Celebration effects for correct answer */}
@@ -1622,156 +1639,109 @@ export default function HostSessionPage() {
                         );
                       })}
                     </AnimatePresence>
-
-                    {/* KBC-style Vertical Bar Chart — shown in reveal/leaderboard state */}
-                    {sessionState === "leaderboard" &&
-                      currentQuestion?.options &&
-                      totalAnswers > 0 && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{
-                            delay: 0.4,
-                            type: "spring",
-                            stiffness: 300,
-                            damping: 25,
-                          }}
-                          className="mt-5 mx-auto w-full max-w-md rounded-2xl overflow-hidden"
-                          style={{
-                            background:
-                              "linear-gradient(180deg, rgba(0,20,80,0.9) 0%, rgba(0,8,50,0.95) 100%)",
-                            border: "1px solid rgba(100,160,255,0.2)",
-                            boxShadow:
-                              "0 0 40px rgba(30,80,220,0.15), inset 0 1px 0 rgba(255,255,255,0.06)",
-                          }}
-                        >
-                          {/* Header strip */}
-                          <div
-                            className="py-2 px-4 text-center"
-                            style={{
-                              background:
-                                "linear-gradient(90deg, rgba(30,80,200,0.3), rgba(100,60,220,0.3), rgba(30,80,200,0.3))",
-                              borderBottom: "1px solid rgba(100,160,255,0.15)",
-                            }}
-                          >
-                            <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-blue-200/70">
-                              📊 Audience Poll
-                            </span>
-                          </div>
-
-                          {/* Bars area */}
-                          <div className="px-6 pt-5 pb-4">
-                            <div className="flex items-end justify-center gap-4 h-40">
-                              {currentQuestion.options.map(
-                                (opt: any, idx: number) => {
-                                  const count = answerStats[opt.id] || 0;
-                                  const pct =
-                                    totalAnswers > 0
-                                      ? Math.round((count / totalAnswers) * 100)
-                                      : 0;
-                                  const isCorrectOpt = opt.is_correct;
-                                  const barGradients = [
-                                    "from-orange-400 via-orange-500 to-orange-600",
-                                    "from-blue-400 via-blue-500 to-blue-600",
-                                    "from-yellow-400 via-amber-500 to-amber-600",
-                                    "from-green-400 via-emerald-500 to-emerald-600",
-                                    "from-violet-400 via-purple-500 to-purple-600",
-                                    "from-pink-400 via-rose-500 to-rose-600",
-                                  ];
-                                  const barGlows = [
-                                    "rgba(251,146,60,0.5)",
-                                    "rgba(96,165,250,0.5)",
-                                    "rgba(251,191,36,0.5)",
-                                    "rgba(52,211,153,0.5)",
-                                    "rgba(167,139,250,0.5)",
-                                    "rgba(244,114,182,0.5)",
-                                  ];
-                                  const gradient = isCorrectOpt
-                                    ? "from-emerald-300 via-emerald-400 to-emerald-600"
-                                    : barGradients[idx % barGradients.length];
-                                  const glow = isCorrectOpt
-                                    ? "rgba(52,211,153,0.6)"
-                                    : barGlows[idx % barGlows.length];
-                                  const barH = pct > 0 ? Math.max(8, pct) : 3;
-                                  const letter = String.fromCharCode(65 + idx);
-
-                                  return (
-                                    <div
-                                      key={opt.id}
-                                      className="flex flex-col items-center gap-2 flex-1"
-                                    >
-                                      {/* Percentage label */}
-                                      <motion.span
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: 0.8 + idx * 0.12 }}
-                                        className={`text-lg font-black tabular-nums ${isCorrectOpt ? "text-emerald-300 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "text-white/80"}`}
-                                      >
-                                        {pct}%
-                                      </motion.span>
-
-                                      {/* Bar */}
-                                      <div
-                                        className="w-full flex justify-center"
-                                        style={{ height: "100px" }}
-                                      >
-                                        <div className="w-10 h-full flex items-end">
-                                          <motion.div
-                                            className={`w-full rounded-t-md bg-gradient-to-t ${gradient}`}
-                                            initial={{ height: 0 }}
-                                            animate={{ height: `${barH}%` }}
-                                            transition={{
-                                              duration: 0.9,
-                                              delay: 0.6 + idx * 0.12,
-                                              ease: "easeOut",
-                                            }}
-                                            style={{
-                                              minHeight: "3px",
-                                              boxShadow: `0 0 14px ${glow}, inset 0 1px 0 rgba(255,255,255,0.3)`,
-                                            }}
-                                          />
-                                        </div>
-                                      </div>
-
-                                      {/* Option letter */}
-                                      <motion.div
-                                        initial={{ opacity: 0, scale: 0.5 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        transition={{
-                                          delay: 0.5 + idx * 0.1,
-                                          type: "spring",
-                                        }}
-                                        className={`w-9 h-9 rounded-lg flex items-center justify-center font-black text-sm ${
-                                          isCorrectOpt
-                                            ? "bg-emerald-400 text-emerald-950 shadow-[0_0_14px_rgba(52,211,153,0.6)]"
-                                            : "bg-white/10 text-white/70 border border-white/10"
-                                        }`}
-                                      >
-                                        {letter}
-                                      </motion.div>
-                                    </div>
-                                  );
-                                },
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Footer */}
-                          <div
-                            className="py-2 px-4 text-center"
-                            style={{
-                              background: "rgba(255,255,255,0.02)",
-                              borderTop: "1px solid rgba(100,160,255,0.1)",
-                            }}
-                          >
-                            <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">
-                              {totalAnswers}{" "}
-                              {totalAnswers === 1 ? "vote" : "votes"} cast
-                            </span>
-                          </div>
-                        </motion.div>
-                      )}
                   </div>
+
+                  {/* ─── Compact Horizontal Bar Chart — visible during reveal ─── */}
+                  {sessionState === "leaderboard" &&
+                    currentQuestion?.options &&
+                    totalAnswers > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3, duration: 0.5 }}
+                        className="mt-4 rounded-xl p-4"
+                        style={{
+                          background: "rgba(255,255,255,0.03)",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/40">
+                            Response Distribution
+                          </span>
+                          <span className="text-[11px] font-bold text-white/30">
+                            {totalAnswers}{" "}
+                            {totalAnswers === 1 ? "vote" : "votes"}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {currentQuestion.options.map(
+                            (opt: any, idx: number) => {
+                              const count = answerStats[opt.id] || 0;
+                              const pct =
+                                totalAnswers > 0
+                                  ? Math.round((count / totalAnswers) * 100)
+                                  : 0;
+                              const isCorrectOpt = opt.is_correct;
+                              const barColors = [
+                                "from-emerald-400 to-emerald-500",
+                                "from-pink-400 to-pink-500",
+                                "from-amber-400 to-amber-500",
+                                "from-cyan-400 to-cyan-500",
+                                "from-violet-400 to-violet-500",
+                                "from-fuchsia-400 to-fuchsia-500",
+                                "from-teal-400 to-teal-500",
+                                "from-rose-400 to-rose-500",
+                              ];
+                              const barColor = isCorrectOpt
+                                ? "from-emerald-300 to-emerald-500"
+                                : barColors[idx % barColors.length];
+                              const letter = String.fromCharCode(65 + idx);
+
+                              return (
+                                <div
+                                  key={opt.id}
+                                  className="flex items-center gap-3"
+                                >
+                                  <span
+                                    className={`w-6 text-center text-xs font-black shrink-0 ${
+                                      isCorrectOpt
+                                        ? "text-emerald-300"
+                                        : "text-white/50"
+                                    }`}
+                                  >
+                                    {letter}
+                                  </span>
+                                  <div className="flex-1 h-5 bg-white/[0.06] rounded-full overflow-hidden">
+                                    <motion.div
+                                      className={`h-full rounded-full bg-gradient-to-r ${barColor} ${
+                                        isCorrectOpt
+                                          ? "shadow-[0_0_12px_rgba(52,211,153,0.4)]"
+                                          : ""
+                                      }`}
+                                      initial={{ width: 0 }}
+                                      animate={{
+                                        width:
+                                          pct > 0
+                                            ? `${Math.max(pct, 3)}%`
+                                            : "0%",
+                                      }}
+                                      transition={{
+                                        duration: 0.8,
+                                        delay: 0.4 + idx * 0.08,
+                                        ease: "easeOut",
+                                      }}
+                                    />
+                                  </div>
+                                  <motion.span
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ delay: 0.6 + idx * 0.08 }}
+                                    className={`w-12 text-right text-sm font-black tabular-nums ${
+                                      isCorrectOpt
+                                        ? "text-emerald-300"
+                                        : "text-white/60"
+                                    }`}
+                                  >
+                                    {pct}%
+                                  </motion.span>
+                                </div>
+                              );
+                            },
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
 
                   {sessionState === "active" && (
                     <motion.button
@@ -1791,7 +1761,7 @@ export default function HostSessionPage() {
                         }
                         setSessionState("leaderboard");
                       }}
-                      className="mt-1 mx-auto btn-cartoon bg-purple-500/20 hover:bg-purple-500/40 border-2 border-purple-500/50 text-purple-200 px-6 py-1.5 rounded-full font-bold text-sm flex gap-2 items-center"
+                      className="mt-4 mx-auto btn-cartoon bg-purple-500/20 hover:bg-purple-500/40 border-2 border-purple-500/50 text-purple-200 px-6 py-1.5 rounded-full font-bold text-sm flex gap-2 items-center"
                     >
                       <Zap size={16} /> Skip Timer
                     </motion.button>

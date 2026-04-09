@@ -238,6 +238,47 @@ function initializeSocketHandlers(io) {
         console.log(
           `[Socket] User ${socket.userId} joined session ${session.id}`,
         );
+
+        // Catch-up: if session is already active with a current question,
+        // send QuestionStarted to this student so they don't get stuck in lobby
+        if (session.status === "Active") {
+          const sessionTracker = activeSessions.get(session.id);
+          if (sessionTracker?.currentQuestion) {
+            try {
+              const quiz = await QuizRepository.getQuizById(session.quiz_id);
+              if (quiz) {
+                const cq = sessionTracker.currentQuestion;
+                const fullQ = quiz.questions.find((q) => q.id === cq.id);
+                if (fullQ) {
+                  const qIndex = quiz.questions.findIndex(
+                    (q) => q.id === cq.id,
+                  );
+                  socket.emit("QuestionStarted", {
+                    questionId: fullQ.id,
+                    questionText: fullQ.question_text,
+                    options: fullQ.options.map((o) => ({
+                      id: o.id,
+                      text: o.option_text,
+                    })),
+                    timeLimit: fullQ.time_limit || 30,
+                    points: fullQ.points || 100,
+                    questionStartTime: cq.questionStartTime,
+                    serverTime: Date.now(),
+                    totalQuestions: quiz.questions.length,
+                    currentQuestionIndex: qIndex >= 0 ? qIndex : 0,
+                    advanceMode: quiz.advance_mode || "auto",
+                    advanceSeconds: quiz.advance_seconds || 5,
+                  });
+                  console.log(
+                    `[Socket] Sent catch-up QuestionStarted to user ${socket.userId} in session ${session.id}`,
+                  );
+                }
+              }
+            } catch (e) {
+              console.error("[Socket] Catch-up QuestionStarted error:", e);
+            }
+          }
+        }
       } catch (error) {
         console.error("[Socket] JoinSession error:", error);
         socket.emit("error", { error: "Failed to join session" });

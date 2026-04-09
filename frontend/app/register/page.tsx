@@ -34,7 +34,9 @@ export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [role, setRole] = useState<"teacher" | "student" | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -93,6 +95,11 @@ export default function RegisterPage() {
 
     if (password.length < 6) {
       setError("Password must be at least 6 characters.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
       return;
     }
 
@@ -523,34 +530,73 @@ export default function RegisterPage() {
                         )}
                       </div>
 
-                      <div className="space-y-1.5">
-                        <label className="block text-white/85 font-semibold text-sm">
-                          Password
-                        </label>
-                        <div className="relative group">
-                          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-white/40 transition-colors duration-200 group-focus-within:text-cyan-400" />
-                          <input
-                            type={showPassword ? "text" : "password"}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full h-10 sm:h-11 rounded-xl border border-white/12 bg-white/[0.045] pl-12 pr-12 text-white text-sm placeholder:text-white/35 outline-none transition-all duration-200 hover:border-white/20 hover:bg-white/[0.06] focus:border-cyan-300/70 focus:bg-white/[0.07] focus:shadow-[0_0_0_4px_rgba(34,211,238,0.14),0_10px_24px_rgba(6,182,212,0.12)] disabled:cursor-not-allowed"
-                            placeholder="Create a password"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword((prev) => !prev)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-white/40 hover:text-cyan-400 hover:bg-white/10 transition-colors duration-200"
-                            aria-label={
-                              showPassword ? "Hide password" : "Show password"
-                            }
-                            disabled={!role || isLoading}
-                          >
-                            {showPassword ? (
-                              <EyeOff className="w-[18px] h-[18px]" />
-                            ) : (
-                              <Eye className="w-[18px] h-[18px]" />
-                            )}
-                          </button>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <label className="block text-white/85 font-semibold text-sm">
+                            Password
+                          </label>
+                          <div className="relative group">
+                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-white/40 transition-colors duration-200 group-focus-within:text-cyan-400" />
+                            <input
+                              type={showPassword ? "text" : "password"}
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                              className="w-full h-10 sm:h-11 rounded-xl border border-white/12 bg-white/[0.045] pl-12 pr-12 text-white text-sm placeholder:text-white/35 outline-none transition-all duration-200 hover:border-white/20 hover:bg-white/[0.06] focus:border-cyan-300/70 focus:bg-white/[0.07] focus:shadow-[0_0_0_4px_rgba(34,211,238,0.14),0_10px_24px_rgba(6,182,212,0.12)] disabled:cursor-not-allowed"
+                              placeholder="Create a password"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword((prev) => !prev)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-white/40 hover:text-cyan-400 hover:bg-white/10 transition-colors duration-200"
+                              aria-label={
+                                showPassword ? "Hide password" : "Show password"
+                              }
+                              disabled={!role || isLoading}
+                            >
+                              {showPassword ? (
+                                <EyeOff className="w-[18px] h-[18px]" />
+                              ) : (
+                                <Eye className="w-[18px] h-[18px]" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="block text-white/85 font-semibold text-sm">
+                            Confirm Password
+                          </label>
+                          <div className="relative group">
+                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-white/40 transition-colors duration-200 group-focus-within:text-cyan-400" />
+                            <input
+                              type={showConfirmPassword ? "text" : "password"}
+                              value={confirmPassword}
+                              onChange={(e) =>
+                                setConfirmPassword(e.target.value)
+                              }
+                              className="w-full h-10 sm:h-11 rounded-xl border border-white/12 bg-white/[0.045] pl-12 pr-12 text-white text-sm placeholder:text-white/35 outline-none transition-all duration-200 hover:border-white/20 hover:bg-white/[0.06] focus:border-cyan-300/70 focus:bg-white/[0.07] focus:shadow-[0_0_0_4px_rgba(34,211,238,0.14),0_10px_24px_rgba(6,182,212,0.12)] disabled:cursor-not-allowed"
+                              placeholder="Confirm password"
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setShowConfirmPassword((prev) => !prev)
+                              }
+                              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-white/40 hover:text-cyan-400 hover:bg-white/10 transition-colors duration-200"
+                              aria-label={
+                                showConfirmPassword
+                                  ? "Hide confirm password"
+                                  : "Show confirm password"
+                              }
+                              disabled={!role || isLoading}
+                            >
+                              {showConfirmPassword ? (
+                                <EyeOff className="w-[18px] h-[18px]" />
+                              ) : (
+                                <Eye className="w-[18px] h-[18px]" />
+                              )}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </fieldset>

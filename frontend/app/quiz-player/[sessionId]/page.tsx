@@ -459,8 +459,11 @@ export default function QuizPlayerPage() {
       }
     });
 
-    onSessionJoined(() => {
-      setStatus("lobbyWaiting");
+    onSessionJoined((data: any) => {
+      // Only go to lobby if session hasn't started yet
+      if (data?.status !== "Active") {
+        setStatus("lobbyWaiting");
+      }
       hasShownStartCountdownRef.current = false;
     });
 
@@ -1658,10 +1661,10 @@ export default function QuizPlayerPage() {
                   className="flex-1 flex items-center justify-center px-3"
                 >
                   <div
-                    className="w-full max-w-5xl rounded-5xl p-4 sm:p-6 md:p-10 lg:p-16 min-h-0 md:min-h-[70vh] flex flex-col justify-center"
+                    className="w-full max-w-2xl rounded-3xl p-4 sm:p-5 md:p-6 flex flex-col justify-center"
                     style={{
                       background:
-                        "linear-gradient(180deg, rgba(10,10,30,0.82), rgba(10,10,30,0.92))",
+                        "linear-gradient(180deg, rgba(10,10,30,0.85), rgba(10,10,30,0.95))",
                       backdropFilter: "blur(20px)",
                       border: "1px solid rgba(255,255,255,0.08)",
                       boxShadow:
@@ -1678,11 +1681,11 @@ export default function QuizPlayerPage() {
                           stiffness: 200,
                           damping: 15,
                         }}
-                        className="text-center mb-4 md:mb-8"
+                        className="text-center mb-3"
                       >
                         {answerFeedback.isCorrect ? (
                           <motion.div
-                            className="w-16 h-16 md:w-24 md:h-24 mx-auto rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center mb-2 md:mb-4"
+                            className="w-14 h-14 md:w-18 md:h-18 mx-auto rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center mb-2"
                             animate={{
                               boxShadow: [
                                 "0 0 30px rgba(34,197,94,0.3)",
@@ -1693,13 +1696,13 @@ export default function QuizPlayerPage() {
                             transition={{ duration: 1.5, repeat: Infinity }}
                           >
                             <CheckCircle
-                              className="w-9 h-9 md:w-14 md:h-14 text-white"
+                              className="w-7 h-7 md:w-10 md:h-10 text-white"
                               strokeWidth={2.5}
                             />
                           </motion.div>
                         ) : (
                           <motion.div
-                            className="w-16 h-16 md:w-24 md:h-24 mx-auto rounded-full bg-gradient-to-br from-red-400 to-pink-600 flex items-center justify-center mb-2 md:mb-4"
+                            className="w-14 h-14 md:w-18 md:h-18 mx-auto rounded-full bg-gradient-to-br from-red-400 to-pink-600 flex items-center justify-center mb-2"
                             style={{
                               boxShadow: "0 0 30px rgba(239,68,68,0.3)",
                             }}
@@ -1707,7 +1710,7 @@ export default function QuizPlayerPage() {
                             transition={{ duration: 0.6 }}
                           >
                             <XCircle
-                              className="w-9 h-9 md:w-14 md:h-14 text-white"
+                              className="w-7 h-7 md:w-10 md:h-10 text-white"
                               strokeWidth={2.5}
                             />
                           </motion.div>
@@ -1717,7 +1720,7 @@ export default function QuizPlayerPage() {
                           initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: 0.1 }}
-                          className={`text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black font-display ${answerFeedback.isCorrect ? "text-green-400" : "text-red-400"}`}
+                          className={`text-xl sm:text-2xl md:text-3xl font-black font-display ${answerFeedback.isCorrect ? "text-green-400" : "text-red-400"}`}
                         >
                           {answerFeedback.isCorrect ? "Correct!" : "Incorrect"}
                         </motion.h2>
@@ -1725,17 +1728,17 @@ export default function QuizPlayerPage() {
                     )}
 
                     {!answerFeedback && (
-                      <div className="text-center mb-4 md:mb-8">
+                      <div className="text-center mb-3">
                         <div
-                          className="w-16 h-16 md:w-24 md:h-24 mx-auto rounded-full bg-gradient-to-br from-purple-400 to-indigo-600 flex items-center justify-center mb-2 md:mb-4"
+                          className="w-14 h-14 md:w-18 md:h-18 mx-auto rounded-full bg-gradient-to-br from-purple-400 to-indigo-600 flex items-center justify-center mb-2"
                           style={{ boxShadow: "0 0 30px rgba(139,92,246,0.3)" }}
                         >
                           <Clock
-                            className="w-9 h-9 md:w-14 md:h-14 text-white"
+                            className="w-7 h-7 md:w-10 md:h-10 text-white"
                             strokeWidth={2.5}
                           />
                         </div>
-                        <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black font-display text-purple-300">
+                        <h2 className="text-xl sm:text-2xl md:text-3xl font-black font-display text-purple-300">
                           Time&apos;s Up!
                         </h2>
                       </div>
@@ -1747,10 +1750,10 @@ export default function QuizPlayerPage() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.2 }}
-                        className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4 mb-4 md:mb-8"
+                        className="flex items-center justify-center gap-2 sm:gap-3 mb-3"
                       >
                         <div
-                          className="flex items-center gap-2 px-4 py-2 rounded-xl"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl"
                           style={{
                             background:
                               "linear-gradient(135deg, rgba(251,191,36,0.12), rgba(245,158,11,0.06))",
@@ -1758,34 +1761,34 @@ export default function QuizPlayerPage() {
                             boxShadow: "0 0 20px rgba(251,191,36,0.15)",
                           }}
                         >
-                          <Star className="w-5 h-5 md:w-6 md:h-6 text-amber-400" />
+                          <Star className="w-4 h-4 md:w-5 md:h-5 text-amber-400" />
                           <motion.span
-                            className="text-lg md:text-2xl font-black gradient-text-amber"
+                            className="text-base md:text-lg font-black gradient-text-amber"
                             initial={{ scale: 0 }}
                             animate={{ scale: [0, 1.3, 1] }}
                             transition={{ delay: 0.35, duration: 0.4 }}
                           >
                             +{answerFeedback.pointsAwarded}
                           </motion.span>
-                          <span className="text-amber-200/60 text-sm md:text-base font-bold">
+                          <span className="text-amber-200/60 text-sm font-bold">
                             pts
                           </span>
                         </div>
 
                         {responseTimeMs > 0 && (
                           <div
-                            className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl"
                             style={{
                               background: "rgba(255,255,255,0.04)",
                               border: "1px solid rgba(255,255,255,0.1)",
                             }}
                           >
-                            <Clock className="w-5 h-5 text-white/70" />
-                            <span className="text-base md:text-lg font-bold text-white/80">
+                            <Clock className="w-4 h-4 text-white/70" />
+                            <span className="text-sm md:text-base font-bold text-white/80">
                               {responseSeconds.toFixed(1)}s
                             </span>
                             <span
-                              className={`text-sm md:text-base font-black uppercase tracking-wider ${speedColor}`}
+                              className={`text-xs md:text-sm font-black uppercase tracking-wider ${speedColor}`}
                             >
                               {speedLabel}
                             </span>
@@ -1800,7 +1803,7 @@ export default function QuizPlayerPage() {
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.35 }}
-                        className="rounded-2xl p-3 sm:p-4 md:p-6 mb-4 md:mb-6"
+                        className="rounded-2xl p-3 sm:p-4 mb-3"
                         style={{
                           background:
                             "linear-gradient(180deg, rgba(15,15,35,0.7), rgba(15,15,35,0.85))",
@@ -1808,11 +1811,11 @@ export default function QuizPlayerPage() {
                           boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
                         }}
                       >
-                        <h3 className="font-bold text-white/70 mb-4 text-base uppercase tracking-[0.15em] flex items-center gap-2">
-                          <Trophy className="w-5 h-5 text-amber-400" /> Top
+                        <h3 className="font-bold text-white/70 mb-2 text-sm uppercase tracking-[0.15em] flex items-center gap-2">
+                          <Trophy className="w-4 h-4 text-amber-400" /> Top
                           Players
                         </h3>
-                        <div className="space-y-3">
+                        <div className="space-y-2">
                           {top3.map((entry: any, i: number) => {
                             const isMe = entry.nickname === user?.name;
                             const mc = reviewMedalColors[i];
@@ -1827,34 +1830,34 @@ export default function QuizPlayerPage() {
                                   stiffness: 400,
                                   damping: 25,
                                 }}
-                                className={`flex items-center gap-2 sm:gap-3 md:gap-4 py-2 md:py-3.5 px-2.5 md:px-4 rounded-xl transition-colors ${
+                                className={`flex items-center gap-2 sm:gap-3 py-1.5 px-2.5 md:px-3 rounded-xl transition-colors ${
                                   isMe
                                     ? "bg-purple-500/20 ring-1 ring-purple-400/30 shadow-[0_0_16px_rgba(139,92,246,0.25)]"
                                     : "bg-white/[0.03]"
                                 }`}
                               >
-                                <div className="flex items-center gap-3">
-                                  <span className="text-2xl">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-lg">
                                     {reviewMedals[i]}
                                   </span>
                                   <AvatarBubble
                                     avatar={entry.avatar}
                                     name={entry.nickname || "?"}
-                                    className={`w-9 h-9 md:w-12 md:h-12 rounded-full bg-gradient-to-br ${mc.bg} flex items-center justify-center text-sm md:text-base font-black text-white border border-white/30 ${mc.glow} relative`}
+                                    className={`w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br ${mc.bg} flex items-center justify-center text-xs md:text-sm font-black text-white border border-white/30 ${mc.glow} relative`}
                                   />
                                 </div>
                                 <span
-                                  className={`flex-1 text-base md:text-lg font-bold truncate ${isMe ? "text-cyan-300" : "text-white/80"}`}
+                                  className={`flex-1 text-sm md:text-base font-bold truncate ${isMe ? "text-cyan-300" : "text-white/80"}`}
                                 >
                                   {entry.nickname}
                                   {isMe && (
-                                    <span className="text-purple-300/70 text-base ml-1">
+                                    <span className="text-purple-300/70 text-sm ml-1">
                                       (You)
                                     </span>
                                   )}
                                 </span>
                                 <motion.span
-                                  className={`font-mono font-black text-base md:text-lg ${mc.text}`}
+                                  className={`font-mono font-black text-sm md:text-base ${mc.text}`}
                                   initial={isMe ? { scale: 0.8 } : {}}
                                   animate={isMe ? { scale: [0.8, 1.2, 1] } : {}}
                                   transition={{ delay: 0.7, duration: 0.4 }}
@@ -1872,24 +1875,24 @@ export default function QuizPlayerPage() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.8 }}
-                            className="mt-2.5 pt-2.5 border-t border-white/[0.06]"
+                            className="mt-2 pt-2 border-t border-white/[0.06]"
                           >
-                            <div className="flex items-center gap-2 sm:gap-3 md:gap-4 py-2 md:py-3.5 px-2.5 md:px-4 rounded-xl bg-purple-500/15 ring-1 ring-purple-400/25">
-                              <span className="text-white/40 font-mono font-bold text-base w-8 text-center">
+                            <div className="flex items-center gap-2 sm:gap-3 py-1.5 px-2.5 md:px-3 rounded-xl bg-purple-500/15 ring-1 ring-purple-400/25">
+                              <span className="text-white/40 font-mono font-bold text-sm w-7 text-center">
                                 #{myRankIndex + 1}
                               </span>
                               <AvatarBubble
                                 avatar={myEntry.avatar}
                                 name={myEntry.nickname || "?"}
-                                className="w-9 h-9 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-sm md:text-base font-black text-white border border-white/30 relative"
+                                className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-xs md:text-sm font-black text-white border border-white/30 relative"
                               />
-                              <span className="flex-1 text-base md:text-lg font-bold text-cyan-300 truncate">
+                              <span className="flex-1 text-sm md:text-base font-bold text-cyan-300 truncate">
                                 {myEntry.nickname}{" "}
-                                <span className="text-purple-300/70 text-base">
+                                <span className="text-purple-300/70 text-sm">
                                   (You)
                                 </span>
                               </span>
-                              <span className="font-mono font-black text-base md:text-lg text-purple-300">
+                              <span className="font-mono font-black text-sm md:text-base text-purple-300">
                                 {myEntry.score}
                               </span>
                             </div>
@@ -1904,9 +1907,9 @@ export default function QuizPlayerPage() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.45 }}
-                        className="flex items-center justify-center gap-3 mb-2"
+                        className="flex items-center justify-center gap-3 mb-1.5"
                       >
-                        <span className="text-sm font-bold uppercase tracking-widest text-white/50">
+                        <span className="text-xs font-bold uppercase tracking-widest text-white/50">
                           Question {questionNumber} of {totalQuestions}
                         </span>
                         <div className="flex gap-1">
@@ -1929,7 +1932,7 @@ export default function QuizPlayerPage() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.5 }}
-                      className="rounded-xl p-3 md:p-6 text-center"
+                      className="rounded-xl p-3 md:p-4 text-center"
                       style={{
                         background:
                           advanceMode === "auto" && timeRemaining > 0
@@ -1943,14 +1946,14 @@ export default function QuizPlayerPage() {
                     >
                       {advanceMode === "auto" && timeRemaining > 0 ? (
                         <div className="flex flex-col items-center gap-2">
-                          <span className="text-base font-bold uppercase tracking-widest text-purple-300/80">
+                          <span className="text-sm font-bold uppercase tracking-widest text-purple-300/80">
                             Next question in
                           </span>
                           <motion.span
                             key={timeRemaining}
                             initial={{ scale: 1.4, opacity: 0.6 }}
                             animate={{ scale: 1, opacity: 1 }}
-                            className="text-4xl md:text-6xl font-black font-mono text-white drop-shadow-[0_0_20px_rgba(139,92,246,0.5)]"
+                            className="text-3xl md:text-4xl font-black font-mono text-white drop-shadow-[0_0_20px_rgba(139,92,246,0.5)]"
                           >
                             {timeRemaining}
                           </motion.span>
@@ -1970,8 +1973,8 @@ export default function QuizPlayerPage() {
                           transition={{ duration: 1.5, repeat: Infinity }}
                           className="flex items-center justify-center gap-2"
                         >
-                          <Clock className="w-6 h-6 text-purple-300" />
-                          <span className="text-lg font-medium text-purple-200/90">
+                          <Clock className="w-5 h-5 text-purple-300" />
+                          <span className="text-base font-medium text-purple-200/90">
                             {advanceMode === "manual"
                               ? "Waiting for teacher to advance..."
                               : "Waiting for next question..."}
