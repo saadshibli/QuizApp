@@ -24,6 +24,9 @@ import {
   Star,
   Check,
   CheckCircle2,
+  Settings2,
+  Timer,
+  Hand,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "@/lib/store/authStore";
@@ -668,6 +671,78 @@ function BuilderPageContent() {
                 <Trash2 className="w-4 h-4" />
               </motion.button>
             )}
+
+            {/* Advance Settings (Quiz-level) */}
+            <div className="flex items-center gap-2 bg-slate-800 rounded-xl px-3 py-2.5 border border-slate-600 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
+              <Settings2 className="w-4.5 h-4.5 text-purple-300 shrink-0" />
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setSetup((prev) => prev ? { ...prev, advance_mode: "auto" } : prev)}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all border ${
+                    setup.advance_mode === "auto"
+                      ? "bg-cyan-500/20 border-cyan-400/50 text-cyan-200 shadow-[0_0_10px_rgba(6,182,212,0.15)]"
+                      : "bg-slate-700/50 border-slate-600 text-slate-400 hover:bg-slate-700 hover:text-slate-200"
+                  }`}
+                >
+                  <Timer className="w-3 h-3" />
+                  Auto
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSetup((prev) => prev ? { ...prev, advance_mode: "manual" } : prev)}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all border ${
+                    setup.advance_mode === "manual"
+                      ? "bg-purple-500/20 border-purple-400/50 text-purple-200 shadow-[0_0_10px_rgba(139,92,246,0.15)]"
+                      : "bg-slate-700/50 border-slate-600 text-slate-400 hover:bg-slate-700 hover:text-slate-200"
+                  }`}
+                >
+                  <Hand className="w-3 h-3" />
+                  Manual
+                </button>
+              </div>
+              {setup.advance_mode === "auto" && (
+                <div className="flex items-center gap-1.5 ml-1">
+                  <button
+                    type="button"
+                    onClick={() => setSetup((prev) => prev ? { ...prev, advance_seconds: Math.max(3, (prev.advance_seconds || 5) - 1) } : prev)}
+                    className="w-6 h-6 flex items-center justify-center rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm transition-colors"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    min={3}
+                    max={60}
+                    aria-label="Auto-advance delay in seconds"
+                    value={setup.advance_seconds ?? 5}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^0-9]/g, "");
+                      if (v === "") {
+                        setSetup((prev) => prev ? { ...prev, advance_seconds: 0 as any } : prev);
+                        return;
+                      }
+                      setSetup((prev) => prev ? { ...prev, advance_seconds: parseInt(v, 10) } : prev);
+                    }}
+                    onBlur={() => {
+                      const n = setup.advance_seconds ?? 5;
+                      if (!n || n < 3) setSetup((prev) => prev ? { ...prev, advance_seconds: 3 } : prev);
+                      else if (n > 60) setSetup((prev) => prev ? { ...prev, advance_seconds: 60 } : prev);
+                    }}
+                    className="w-10 bg-slate-700/60 border border-slate-600 rounded-lg px-1 py-0.5 text-center text-sm font-semibold text-white outline-none focus:border-purple-400/60 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <span className="text-xs font-semibold text-white/60">s</span>
+                  <button
+                    type="button"
+                    onClick={() => setSetup((prev) => prev ? { ...prev, advance_seconds: Math.min(60, (prev.advance_seconds || 5) + 1) } : prev)}
+                    className="w-6 h-6 flex items-center justify-center rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm transition-colors"
+                  >
+                    +
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

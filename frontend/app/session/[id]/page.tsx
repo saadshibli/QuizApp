@@ -1369,7 +1369,7 @@ export default function HostSessionPage() {
 
           <main className="flex-1 flex flex-col lg:flex-row gap-3 p-3 lg:p-4 overflow-hidden max-w-[1600px] mx-auto w-full min-h-0">
             {/* Game Board */}
-            <div className="flex-[2.5] flex flex-col relative z-10 min-h-0 overflow-hidden">
+            <div className="flex-[1.5] flex flex-col relative z-10 min-h-0 overflow-hidden">
               {currentQuestion ? (
                 <div className="flex flex-col gap-2 h-full justify-center bg-black/40 backdrop-blur-xl rounded-[2rem] border-2 border-white/10 p-4 lg:p-5 shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-y-auto min-h-0">
                   {/* Header / Info with Circular Timer */}
@@ -1511,7 +1511,7 @@ export default function HostSessionPage() {
                   </div>
 
                   {/* Options Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 lg:gap-3">
+                  <div className={`grid gap-2.5 lg:gap-3 ${sessionState === "leaderboard" ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2"}`}>
                     <AnimatePresence>
                       {currentQuestion.options?.map((opt: any, idx: number) => {
                         const colors = [
@@ -1607,23 +1607,7 @@ export default function HostSessionPage() {
                                   : `bg-gradient-to-r ${c.gradient} border-2 ${c.border} ${c.hoverGlow} hover:shadow-lg`
                             }`}
                           >
-                            {/* Live / Reveal Background Fill Bar */}
-                            {(isReveal || (!isReveal && totalAnswers > 0)) && (
-                              <motion.div
-                                className={`absolute left-0 bottom-0 top-0 rounded-l-xl ${
-                                  isReveal
-                                    ? isCorrect
-                                      ? "bg-emerald-400/25"
-                                      : "bg-white/[0.10]"
-                                    : "bg-white/[0.15]"
-                                }`}
-                                initial={{ width: 0 }}
-                                animate={{ width: `${percentage}%` }}
-                                transition={{ duration: 0.7, ease: "easeOut" }}
-                              />
-                            )}
-
-                            <div className="relative z-10 flex items-center justify-between w-full gap-3">
+                            <div className="relative z-10 flex items-center w-full gap-3">
                               <div className="flex items-center gap-3">
                                 <div
                                   className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm shrink-0 shadow-md ${isCorrect ? "bg-emerald-400 text-emerald-950" : isWrong ? "bg-gray-600 text-gray-300" : c.chip}`}
@@ -1634,36 +1618,6 @@ export default function HostSessionPage() {
                                   {opt.text}
                                 </span>
                               </div>
-
-                              {isReveal && (
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <motion.span
-                                    initial={{ opacity: 0, scale: 0.5 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    className={`font-black text-xl tabular-nums ${isCorrect ? "text-emerald-300" : "text-white/60"}`}
-                                  >
-                                    {percentage}%
-                                  </motion.span>
-                                  <motion.span
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    transition={{ delay: 0.3 }}
-                                    className="text-xs text-white/40 font-semibold"
-                                  >
-                                    ({optionCount})
-                                  </motion.span>
-                                </div>
-                              )}
-                              {!isReveal && totalAnswers > 0 && (
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <span className="font-bold text-sm tabular-nums text-white/50">
-                                    {percentage}%
-                                  </span>
-                                  <span className="text-xs text-white/30 font-semibold">
-                                    ({optionCount})
-                                  </span>
-                                </div>
-                              )}
                             </div>
 
                             {/* Celebration effects for correct answer */}
@@ -1679,108 +1633,6 @@ export default function HostSessionPage() {
                       })}
                     </AnimatePresence>
                   </div>
-
-                  {/* ─── Compact Horizontal Bar Chart — visible during reveal ─── */}
-                  {sessionState === "leaderboard" &&
-                    currentQuestion?.options &&
-                    totalAnswers > 0 && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 12 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3, duration: 0.5 }}
-                        className="mt-4 rounded-xl p-4"
-                        style={{
-                          background: "rgba(255,255,255,0.03)",
-                          border: "1px solid rgba(255,255,255,0.08)",
-                        }}
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/40">
-                            Response Distribution
-                          </span>
-                          <span className="text-[11px] font-bold text-white/30">
-                            {totalAnswers}{" "}
-                            {totalAnswers === 1 ? "vote" : "votes"}
-                          </span>
-                        </div>
-                        <div className="space-y-2">
-                          {currentQuestion.options.map(
-                            (opt: any, idx: number) => {
-                              const count = answerStats[opt.id] || 0;
-                              const pct =
-                                totalAnswers > 0
-                                  ? Math.round((count / totalAnswers) * 100)
-                                  : 0;
-                              const isCorrectOpt = opt.is_correct;
-                              const barColors = [
-                                "from-emerald-400 to-emerald-500",
-                                "from-pink-400 to-pink-500",
-                                "from-amber-400 to-amber-500",
-                                "from-cyan-400 to-cyan-500",
-                                "from-violet-400 to-violet-500",
-                                "from-fuchsia-400 to-fuchsia-500",
-                                "from-teal-400 to-teal-500",
-                                "from-rose-400 to-rose-500",
-                              ];
-                              const barColor = isCorrectOpt
-                                ? "from-emerald-300 to-emerald-500"
-                                : barColors[idx % barColors.length];
-                              const letter = String.fromCharCode(65 + idx);
-
-                              return (
-                                <div
-                                  key={opt.id}
-                                  className="flex items-center gap-3"
-                                >
-                                  <span
-                                    className={`w-6 text-center text-xs font-black shrink-0 ${
-                                      isCorrectOpt
-                                        ? "text-emerald-300"
-                                        : "text-white/50"
-                                    }`}
-                                  >
-                                    {letter}
-                                  </span>
-                                  <div className="flex-1 h-5 bg-white/[0.06] rounded-full overflow-hidden">
-                                    <motion.div
-                                      className={`h-full rounded-full bg-gradient-to-r ${barColor} ${
-                                        isCorrectOpt
-                                          ? "shadow-[0_0_12px_rgba(52,211,153,0.4)]"
-                                          : ""
-                                      }`}
-                                      initial={{ width: 0 }}
-                                      animate={{
-                                        width:
-                                          pct > 0
-                                            ? `${Math.max(pct, 3)}%`
-                                            : "0%",
-                                      }}
-                                      transition={{
-                                        duration: 0.8,
-                                        delay: 0.4 + idx * 0.08,
-                                        ease: "easeOut",
-                                      }}
-                                    />
-                                  </div>
-                                  <motion.span
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    transition={{ delay: 0.6 + idx * 0.08 }}
-                                    className={`w-12 text-right text-sm font-black tabular-nums ${
-                                      isCorrectOpt
-                                        ? "text-emerald-300"
-                                        : "text-white/60"
-                                    }`}
-                                  >
-                                    {pct}%
-                                  </motion.span>
-                                </div>
-                              );
-                            },
-                          )}
-                        </div>
-                      </motion.div>
-                    )}
 
                   {sessionState === "active" && (
                     <motion.button
@@ -1829,8 +1681,123 @@ export default function HostSessionPage() {
               )}
             </div>
 
+            {/* ─── Center Chart Panel ─── */}
+            {(sessionState === "active" || sessionState === "leaderboard") && currentQuestion?.options && (() => {
+              const isRevealChart = sessionState === "leaderboard";
+              const neonColors = [
+                { gradient: "from-emerald-400 to-emerald-600", glow: "rgba(16,185,129,0.6)", glowStrong: "rgba(16,185,129,0.35)" },
+                { gradient: "from-pink-400 to-pink-600", glow: "rgba(236,72,153,0.6)", glowStrong: "rgba(236,72,153,0.35)" },
+                { gradient: "from-amber-400 to-amber-600", glow: "rgba(245,158,11,0.6)", glowStrong: "rgba(245,158,11,0.35)" },
+                { gradient: "from-cyan-400 to-cyan-600", glow: "rgba(6,182,212,0.6)", glowStrong: "rgba(6,182,212,0.35)" },
+                { gradient: "from-violet-400 to-violet-600", glow: "rgba(139,92,246,0.6)", glowStrong: "rgba(139,92,246,0.35)" },
+                { gradient: "from-fuchsia-400 to-fuchsia-600", glow: "rgba(217,70,239,0.6)", glowStrong: "rgba(217,70,239,0.35)" },
+                { gradient: "from-teal-400 to-teal-600", glow: "rgba(20,184,166,0.6)", glowStrong: "rgba(20,184,166,0.35)" },
+                { gradient: "from-rose-400 to-rose-600", glow: "rgba(244,63,94,0.6)", glowStrong: "rgba(244,63,94,0.35)" },
+              ];
+              return (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="flex-[1.5] flex flex-col relative z-10 min-h-0 bg-black/40 backdrop-blur-xl rounded-[2rem] border-2 border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden"
+                >
+                  {/* Grid background */}
+                  <div className="absolute inset-0 opacity-[0.07]" style={{
+                    backgroundImage: `linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)`,
+                    backgroundSize: '40px 40px',
+                  }} />
+
+                  <div className="relative z-10 flex flex-col h-full p-4 lg:p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/50">
+                        {isRevealChart ? "Response Distribution" : "Live Responses"}
+                      </span>
+                      {isRevealChart && (
+                        <span className="text-[11px] font-bold text-white/40">
+                          {totalAnswers} {totalAnswers === 1 ? "vote" : "votes"}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex-1 flex items-end justify-center gap-4 lg:gap-6 pb-2">
+                      {currentQuestion.options.map((opt: any, idx: number) => {
+                        const count = answerStats[opt.id] || 0;
+                        const pct = totalAnswers > 0 ? Math.round((count / totalAnswers) * 100) : 0;
+                        const isCorrectOpt = isRevealChart && opt.is_correct;
+                        const nc = isCorrectOpt
+                          ? { gradient: "from-emerald-300 to-emerald-500", glow: "rgba(52,211,153,0.8)", glowStrong: "rgba(52,211,153,0.5)" }
+                          : neonColors[idx % neonColors.length];
+                        const letter = String.fromCharCode(65 + idx);
+
+                        const suspenseHeights = [
+                          [70, 180, 110, 210, 85, 155],
+                          [140, 85, 195, 100, 170, 125],
+                          [100, 155, 70, 170, 125, 195],
+                          [170, 110, 155, 55, 195, 100],
+                          [125, 195, 100, 140, 70, 180],
+                          [85, 140, 180, 110, 155, 55],
+                          [155, 70, 125, 195, 85, 170],
+                          [110, 170, 85, 155, 180, 70],
+                        ];
+                        const maxBarHeight = 280;
+                        const realHeight = pct > 0 ? Math.max(Math.round((pct / 100) * maxBarHeight), 20) : 10;
+
+                        return (
+                          <div key={opt.id} className="flex flex-col items-center gap-1 flex-1 max-w-[90px]">
+                            {/* Percentage label on top (only during reveal) */}
+                            {isRevealChart && (
+                              <motion.span
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.3 + idx * 0.1 }}
+                                className={`text-sm lg:text-base font-black tabular-nums mb-1 ${isCorrectOpt ? "text-emerald-300" : "text-white/70"}`}
+                                style={{ textShadow: `0 0 10px ${nc.glow}` }}
+                              >
+                                {pct}%
+                              </motion.span>
+                            )}
+                            {/* Neon bar */}
+                            <div className="w-full flex items-end justify-center" style={{ height: `${maxBarHeight}px` }}>
+                              <motion.div
+                                className={`w-full max-w-[50px] rounded-xl bg-gradient-to-t ${nc.gradient}`}
+                                style={{
+                                  boxShadow: `0 0 20px ${nc.glowStrong}, 0 0 40px ${nc.glowStrong}, inset 0 0 20px rgba(255,255,255,0.1)`,
+                                }}
+                                initial={{ height: 10 }}
+                                animate={
+                                  isRevealChart
+                                    ? { height: realHeight }
+                                    : { height: suspenseHeights[idx % suspenseHeights.length] }
+                                }
+                                transition={
+                                  isRevealChart
+                                    ? { duration: 0.8, delay: 0.2 + idx * 0.1, ease: "easeOut" }
+                                    : {
+                                        duration: 2 + (idx % 3) * 0.5,
+                                        repeat: Infinity,
+                                        repeatType: "mirror" as const,
+                                        ease: "easeInOut",
+                                      }
+                                }
+                              />
+                            </div>
+                            {/* Letter label */}
+                            <span
+                              className={`text-sm font-black mt-2 ${isCorrectOpt ? "text-emerald-300" : "text-white/60"}`}
+                              style={{ textShadow: `0 0 8px ${nc.glow}` }}
+                            >
+                              {letter}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })()}
+
             {/* Leaderboard Sidebar */}
-            <div className="flex-1 w-full lg:max-w-md cartoon-panel flex flex-col overflow-hidden bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl z-10 rounded-2xl sm:rounded-[2rem] min-h-0 max-h-[40vh] lg:max-h-none">
+            <div className="flex-1 w-full lg:max-w-xs cartoon-panel flex flex-col overflow-hidden bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl z-10 rounded-2xl sm:rounded-[2rem] min-h-0 max-h-[40vh] lg:max-h-none">
               <div className="p-4 border-b border-white/10 flex items-center justify-between bg-gradient-to-b from-white/5 to-transparent">
                 <h3 className="text-xl font-black text-white flex items-center gap-2.5 font-display">
                   <span className="text-2xl drop-shadow-[0_0_10px_rgba(255,215,0,0.8)]">

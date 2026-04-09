@@ -84,6 +84,8 @@ const schemas = {
         "neon",
       )
       .default("none"),
+    advance_mode: Joi.string().valid("auto", "manual").default("auto"),
+    advance_seconds: Joi.number().integer().min(3).max(60).default(5),
   }),
 
   addQuestion: Joi.object({
