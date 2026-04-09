@@ -486,17 +486,20 @@ export default function QuizPlayerPage() {
       if (data.advanceSeconds) setAdvanceSeconds(data.advanceSeconds);
 
       if (!hasShownStartCountdownRef.current) {
-        // First question: show startup countdown to questionStartTime
-        setPendingQuestion(data);
+        hasShownStartCountdownRef.current = true;
         const adjustedNow = Date.now() + serverOffsetRef.current;
         const remaining = Math.max(
           0,
           Math.ceil((data.questionStartTime - adjustedNow) / 1000),
         );
-        setStartCountdown(remaining);
-        setStatus("startCountdown");
-        hasShownStartCountdownRef.current = true;
-        return;
+        if (remaining > 1) {
+          // First question: show startup countdown to questionStartTime
+          setPendingQuestion(data);
+          setStartCountdown(remaining);
+          setStatus("startCountdown");
+          return;
+        }
+        // Countdown already passed (mid-question catch-up) — skip straight to question
       }
 
       // Subsequent questions: switch to question immediately

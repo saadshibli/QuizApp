@@ -79,8 +79,11 @@ export default function HostSessionPage() {
   const questionStartTimeRef = useRef<number>(0);
   const questionDurationRef = useRef<number>(30);
   const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
+  const isAdvancingRef = useRef(false);
   const sessionStateRef = useRef(sessionState);
   sessionStateRef.current = sessionState;
+  const [leaderboardCountdown, setLeaderboardCountdown] = useState(0);
+  const leaderboardTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const joinUrl =
     typeof window !== "undefined" && sessionCode
@@ -314,7 +317,11 @@ export default function HostSessionPage() {
       }
     });
 
-    socket.on("ParticipantLeft", () => {});
+    socket.on("ParticipantLeft", (data: any) => {
+      if (data?.participantId) {
+        setPlayers((prev) => prev.filter((p) => p.id !== data.participantId));
+      }
+    });
 
     // Listen for individual answer submissions (broadcast to room)
     socket.on("AnswerSubmitted", (data: any) => {
@@ -612,16 +619,33 @@ export default function HostSessionPage() {
   useEffect(() => {
     if (sessionState !== "leaderboard" || isActionLoading) return;
     if (advanceMode === "manual") return; // manual mode: teacher clicks Next
+    if (isAdvancingRef.current) return; // already advancing, don't double-trigger
+
+    const delay = Math.max(1, Number(advanceSeconds) || 5);
+    setLeaderboardCountdown(delay);
+
+    // Visual countdown tick
+    leaderboardTimerRef.current = setInterval(() => {
+      setLeaderboardCountdown((prev) => Math.max(0, prev - 1));
+    }, 1000);
 
     autoAdvanceRef.current = setTimeout(() => {
-      handleNextQuestion();
-    }, advanceSeconds * 1000);
+      isAdvancingRef.current = true;
+      handleNextQuestion().finally(() => {
+        isAdvancingRef.current = false;
+      });
+    }, delay * 1000);
 
     return () => {
       if (autoAdvanceRef.current) {
         clearTimeout(autoAdvanceRef.current);
         autoAdvanceRef.current = null;
       }
+      if (leaderboardTimerRef.current) {
+        clearInterval(leaderboardTimerRef.current);
+        leaderboardTimerRef.current = null;
+      }
+      setLeaderboardCountdown(0);
     };
   }, [
     sessionState,
@@ -1187,23 +1211,38 @@ export default function HostSessionPage() {
                 </span>
               </div>
               {sessionState === "leaderboard" && (
-                <motion.button
-                  type="button"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    if (autoAdvanceRef.current) {
-                      clearTimeout(autoAdvanceRef.current);
-                      autoAdvanceRef.current = null;
-                    }
-                    handleNextQuestion();
-                  }}
-                  disabled={isActionLoading}
-                  className="btn-cartoon btn-cartoon-blue px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl flex gap-1.5 sm:gap-2 items-center font-black text-sm sm:text-base shadow-[0_0_20px_rgba(59,130,246,0.6)]"
-                >
-                  {isActionLoading ? "Loading..." : "Next Question"}{" "}
-                  <ArrowRight className="w-5 h-5" />
-                </motion.button>
+                <div className="flex items-center gap-3">
+                  {advanceMode === "auto" && leaderboardCountdown > 0 && (
+                    <div className="flex items-center gap-1.5 cartoon-panel-soft px-3 py-1.5 rounded-xl border-white/10">
+                      <Clock size={14} className="text-cyan-400" />
+                      <span className="text-sm font-bold tabular-nums text-cyan-300">
+                        {leaderboardCountdown}s
+                      </span>
+                    </div>
+                  )}
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      if (autoAdvanceRef.current) {
+                        clearTimeout(autoAdvanceRef.current);
+                        autoAdvanceRef.current = null;
+                      }
+                      if (leaderboardTimerRef.current) {
+                        clearInterval(leaderboardTimerRef.current);
+                        leaderboardTimerRef.current = null;
+                      }
+                      setLeaderboardCountdown(0);
+                      handleNextQuestion();
+                    }}
+                    disabled={isActionLoading}
+                    className="btn-cartoon btn-cartoon-blue px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl flex gap-1.5 sm:gap-2 items-center font-black text-sm sm:text-base shadow-[0_0_20px_rgba(59,130,246,0.6)]"
+                  >
+                    {isActionLoading ? "Loading..." : "Next Question"}{" "}
+                    <ArrowRight className="w-5 h-5" />
+                  </motion.button>
+                </div>
               )}
             </div>
           </header>

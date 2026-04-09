@@ -633,11 +633,9 @@ function initializeSocketHandlers(io) {
         const sessionData = activeSessions.get(socket.sessionId);
 
         if (sessionData) {
-          // Clean up auto-end timer if this was the teacher (host)
-          if (socket.userRole === "teacher" && sessionData.autoEndTimer) {
-            clearTimeout(sessionData.autoEndTimer);
-            sessionData.autoEndTimer = null;
-          }
+          // NOTE: Do NOT clear auto-end timer on teacher disconnect.
+          // The timer is a safety net that ensures questions end even if the
+          // teacher loses connection, preventing students from getting stuck.
 
           // Remove user from session participants
           sessionData.participants = sessionData.participants.filter(
@@ -651,6 +649,10 @@ function initializeSocketHandlers(io) {
           });
 
           if (sessionData.participants.length === 0) {
+            // Clean up timer before removing empty session
+            if (sessionData.autoEndTimer) {
+              clearTimeout(sessionData.autoEndTimer);
+            }
             activeSessions.delete(socket.sessionId);
           }
         }
