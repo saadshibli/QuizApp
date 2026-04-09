@@ -136,7 +136,7 @@ export default function LoginPage() {
                   <div className="space-y-2">
                     <h1 className="title-cartoon text-5xl leading-[1.02]">
                       <span className="text-[#fde68a]">Quiz</span>{" "}
-                      <span className="text-[#c4b5fd]">Master</span>
+                      <span className="text-[#c4b5fd]">Buzz</span>
                     </h1>
                     <p className="text-[15px] xl:text-base text-white/92 leading-[1.45] max-w-[360px]">
                       Launch live quiz battles and keep the pace fast.
@@ -187,7 +187,7 @@ export default function LoginPage() {
             <div className="lg:hidden mb-6 text-center px-2">
               <h2 className="title-cartoon text-3xl sm:text-4xl mb-2">
                 <span className="text-[#fde68a]">Quiz</span>{" "}
-                <span className="text-[#c4b5fd]">Master</span>
+                <span className="text-[#c4b5fd]">Buzz</span>
               </h2>
               <p className="text-sm text-purple-100/80">
                 Welcome back. Sign in to continue your live sessions.

@@ -59,7 +59,7 @@ export default function HostSessionPage() {
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [copied, setCopied] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [, setTotalQuestions] = useState(0);
+  const [totalQuestions, setTotalQuestions] = useState(0);
   const [advanceMode, setAdvanceMode] = useState<"auto" | "manual">("auto");
   const [advanceSeconds, setAdvanceSeconds] = useState(5);
 
@@ -1210,6 +1210,17 @@ export default function HostSessionPage() {
                   {players.length}
                 </span>
               </div>
+              {totalQuestions > 0 && (
+                <div className="cartoon-panel-soft px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl flex gap-1.5 sm:gap-2 items-center text-sm border-white/10">
+                  <span className="font-bold text-cyan-300 text-base sm:text-lg tabular-nums">
+                    Q.{currentQuestionIndex + 1}
+                  </span>
+                  <span className="text-white/40 font-bold">/</span>
+                  <span className="font-bold text-white/70 text-base sm:text-lg tabular-nums">
+                    {totalQuestions}
+                  </span>
+                </div>
+              )}
               {sessionState === "leaderboard" && (
                 <div className="flex items-center gap-3">
                   {advanceMode === "auto" && leaderboardCountdown > 0 && (
@@ -1854,6 +1865,7 @@ export default function HostSessionPage() {
                       return (
                         <motion.div
                           key={lb.user_id || lb.nickname || index}
+                          layout="position"
                           initial={{ opacity: 0, x: 30 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{
@@ -1861,6 +1873,7 @@ export default function HostSessionPage() {
                             stiffness: 400,
                             damping: 30,
                             delay: index * 0.04,
+                            layout: { type: "spring", stiffness: 300, damping: 30 },
                           }}
                           className={`rounded-xl p-3 flex items-center gap-3 relative overflow-hidden border-2 ${rs.bg} ${rs.border} ${rs.shadow}`}
                         >

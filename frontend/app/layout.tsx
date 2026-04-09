@@ -20,7 +20,7 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "Quiz Master — Interactive Quiz Platform",
+  title: "QuizBuzz — Interactive Quiz Platform",
   description:
     "Create live quiz sessions, invite students, and run exciting rounds with fast scoring and live leaderboards.",
 };
