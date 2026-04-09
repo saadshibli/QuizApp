@@ -148,7 +148,7 @@ export default function RegisterPage() {
       : 3;
 
   return (
-    <div className="space-bg h-screen overflow-hidden relative">
+    <div className="space-bg min-h-screen relative">
       <SpaceBackground />
 
       <Link href="/">
@@ -162,7 +162,7 @@ export default function RegisterPage() {
         </motion.button>
       </Link>
 
-      <div className="relative z-10 h-full flex flex-col lg:flex-row lg:items-center lg:gap-6 px-3 sm:px-6 lg:px-10">
+      <div className="relative z-10 min-h-screen flex flex-col lg:flex-row lg:items-center lg:gap-6 px-3 sm:px-6 lg:px-10 py-20 lg:py-4">
         {/* Left: Role Selection Visual */}
         <motion.div
           initial={{ opacity: 0, x: -40 }}

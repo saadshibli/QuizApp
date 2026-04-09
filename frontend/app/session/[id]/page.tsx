@@ -1808,52 +1808,77 @@ export default function HostSessionPage() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                <AnimatePresence>
+                <AnimatePresence initial={false}>
                   {leaderboard?.length > 0 ? (
                     leaderboard.map((lb: any, index: number) => {
-                      const rankBg =
-                        index === 0
-                          ? "bg-gradient-to-r from-emerald-500/30 to-emerald-600/20 border-emerald-400/50 shadow-[0_0_16px_rgba(16,185,129,0.3)]"
-                          : index === 1
-                            ? "bg-gradient-to-r from-sky-500/25 to-blue-500/15 border-sky-400/40 shadow-[0_0_12px_rgba(56,189,248,0.25)]"
-                            : index === 2
-                              ? "bg-gradient-to-r from-amber-500/25 to-orange-500/15 border-amber-400/40 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
-                              : "bg-white/5 border-white/10";
-                      const leftBar =
-                        index === 0
-                          ? "bg-gradient-to-b from-emerald-300 to-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"
-                          : index === 1
-                            ? "bg-gradient-to-b from-sky-300 to-sky-500 shadow-[0_0_10px_rgba(56,189,248,0.6)]"
-                            : index === 2
-                              ? "bg-gradient-to-b from-amber-400 to-amber-600 shadow-[0_0_10px_rgba(245,158,11,0.6)]"
-                              : "";
+                      const rankStyles = [
+                        {
+                          bg: "bg-gradient-to-r from-yellow-500/30 via-amber-500/20 to-yellow-600/25",
+                          border: "border-yellow-400/60",
+                          shadow: "shadow-[0_0_20px_rgba(234,179,8,0.35)]",
+                          leftBar: "bg-gradient-to-b from-yellow-300 to-amber-500 shadow-[0_0_12px_rgba(234,179,8,0.8)]",
+                          crown: "👑",
+                          scoreColor: "text-yellow-200",
+                          nameColor: "text-yellow-50",
+                        },
+                        {
+                          bg: "bg-gradient-to-r from-pink-500/30 via-rose-500/20 to-pink-600/25",
+                          border: "border-pink-400/50",
+                          shadow: "shadow-[0_0_16px_rgba(236,72,153,0.3)]",
+                          leftBar: "bg-gradient-to-b from-pink-300 to-rose-500 shadow-[0_0_10px_rgba(236,72,153,0.7)]",
+                          crown: "👑",
+                          scoreColor: "text-pink-200",
+                          nameColor: "text-pink-50",
+                        },
+                        {
+                          bg: "bg-gradient-to-r from-emerald-500/30 via-green-500/20 to-emerald-600/25",
+                          border: "border-emerald-400/50",
+                          shadow: "shadow-[0_0_16px_rgba(16,185,129,0.3)]",
+                          leftBar: "bg-gradient-to-b from-emerald-300 to-green-500 shadow-[0_0_10px_rgba(16,185,129,0.7)]",
+                          crown: "👑",
+                          scoreColor: "text-emerald-200",
+                          nameColor: "text-emerald-50",
+                        },
+                      ];
+                      const defaultStyle = {
+                        bg: "bg-gradient-to-r from-purple-500/15 via-indigo-500/10 to-purple-600/15",
+                        border: "border-purple-400/25",
+                        shadow: "",
+                        leftBar: "bg-gradient-to-b from-purple-400 to-indigo-500",
+                        crown: "",
+                        scoreColor: "text-purple-200",
+                        nameColor: "text-white",
+                      };
+                      const rs = index < 3 ? rankStyles[index] : defaultStyle;
 
                       return (
                         <motion.div
                           key={lb.user_id || lb.nickname || index}
-                          initial={{ opacity: 0, x: 50 }}
+                          initial={{ opacity: 0, x: 30 }}
                           animate={{ opacity: 1, x: 0 }}
-                          layout
                           transition={{
                             type: "spring",
-                            stiffness: 300,
-                            damping: 24,
-                            delay: index * 0.05,
+                            stiffness: 400,
+                            damping: 30,
+                            delay: index * 0.04,
                           }}
-                          className={`rounded-xl p-3 flex items-center gap-3 relative overflow-hidden border ${rankBg} hover:brightness-110 transition-all`}
+                          className={`rounded-xl p-3 flex items-center gap-3 relative overflow-hidden border-2 ${rs.bg} ${rs.border} ${rs.shadow}`}
                         >
-                          {index <= 2 && (
-                            <div
-                              className={`absolute left-0 top-0 bottom-0 w-1.5 ${leftBar}`}
-                            />
-                          )}
+                          {/* Left accent bar */}
+                          <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${rs.leftBar}`} />
 
-                          <div className="font-black text-lg w-6 text-center text-white/50">
-                            {index + 1}
+                          {/* Rank number or crown */}
+                          <div className="w-7 text-center shrink-0 ml-1">
+                            {index < 3 ? (
+                              <span className="text-lg drop-shadow-[0_0_6px_rgba(255,215,0,0.6)]">{rs.crown}</span>
+                            ) : (
+                              <span className="font-black text-base text-white/40">{index + 1}.</span>
+                            )}
                           </div>
 
+                          {/* Avatar */}
                           <div
-                            className={`avatar-bubble w-10 h-10 text-base bg-gradient-to-br ${AVATAR_GRADIENTS[index % AVATAR_GRADIENTS.length]} shadow-inner border border-white/20`}
+                            className={`avatar-bubble w-10 h-10 text-base bg-gradient-to-br ${AVATAR_GRADIENTS[index % AVATAR_GRADIENTS.length]} shadow-inner border-2 ${index < 3 ? rs.border : 'border-white/20'}`}
                           >
                             {lb.avatar && lb.avatar.startsWith("http") ? (
                               <Image
@@ -1872,28 +1897,19 @@ export default function HostSessionPage() {
                             )}
                           </div>
 
+                          {/* Name */}
                           <div className="flex-1 min-w-0">
-                            <div className="font-bold text-white truncate text-base">
+                            <div className={`font-bold truncate text-sm ${rs.nameColor}`}>
                               {lb.nickname || lb.username}
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            {lb.totalResponseTime > 0 && (
-                              <span className="text-[11px] font-medium text-purple-300/60 flex items-center gap-0.5">
-                                <Clock className="w-3 h-3" />
-                                {(lb.totalResponseTime / 1000).toFixed(1)}s
-                              </span>
-                            )}
-                            <div className="font-mono font-black bg-black/30 px-2.5 py-1 rounded-lg border border-white/10 text-amber-200 min-w-[3rem] text-center text-sm shadow-inner">
-                              <motion.span
-                                key={lb.score}
-                                initial={{ scale: 1.5, color: "#facc15" }}
-                                animate={{ scale: 1, color: "#fcd34d" }}
-                              >
-                                {lb.score}
-                              </motion.span>
-                            </div>
+                          {/* Score */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className={`font-black text-sm tabular-nums ${rs.scoreColor}`}>
+                              {lb.score} pts
+                            </span>
+                            <Zap className={`w-3.5 h-3.5 ${rs.scoreColor} fill-current opacity-70`} />
                           </div>
                         </motion.div>
                       );

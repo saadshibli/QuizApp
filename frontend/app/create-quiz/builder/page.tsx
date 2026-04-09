@@ -86,6 +86,7 @@ function BuilderPageContent() {
   const [originalQuestionIds, setOriginalQuestionIds] = useState<number[]>([]);
   const initializedRef = useRef(false);
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pillsRef = useRef<HTMLDivElement>(null);
   const [showCorrectFeedback, setShowCorrectFeedback] = useState(false);
   const [feedbackPulseKey, setFeedbackPulseKey] = useState(0);
   const [validationModal, setValidationModal] = useState<string | null>(null);
@@ -148,9 +149,37 @@ function BuilderPageContent() {
     if (initializedRef.current) return;
     initializedRef.current = true;
 
+    const draftKey = quizIdParam ? `quizDraft_${quizIdParam}` : "quizDraft_new";
+
     if (quizIdParam) {
+      // Check for unsaved draft first
+      const draft = window.sessionStorage.getItem(draftKey);
+      if (draft) {
+        try {
+          const parsed = JSON.parse(draft);
+          if (parsed.setup) setSetup(parsed.setup);
+          if (parsed.questions?.length) setQuestions(parsed.questions);
+          if (parsed.currentIndex >= 0) setCurrentIndex(parsed.currentIndex);
+          if (parsed.originalQuestionIds) setOriginalQuestionIds(parsed.originalQuestionIds);
+          return;
+        } catch {}
+      }
       loadExistingQuiz(quizIdParam);
     } else {
+      // Check for unsaved draft first
+      const draft = window.sessionStorage.getItem(draftKey);
+      if (draft) {
+        try {
+          const parsed = JSON.parse(draft);
+          if (parsed.setup && parsed.questions?.length) {
+            setSetup(parsed.setup);
+            setQuestions(parsed.questions);
+            if (parsed.currentIndex >= 0) setCurrentIndex(parsed.currentIndex);
+            return;
+          }
+        } catch {}
+      }
+
       const savedSetup = window.localStorage.getItem("quizSetup");
       if (!savedSetup) {
         router.replace("/create-quiz");
@@ -173,6 +202,14 @@ function BuilderPageContent() {
       }
     }
   }, [router, quizIdParam, loadExistingQuiz]);
+
+  // Auto-save draft to sessionStorage on every change
+  useEffect(() => {
+    if (!setup || questions.length === 0) return;
+    const draftKey = quizIdParam ? `quizDraft_${quizIdParam}` : "quizDraft_new";
+    const draft = JSON.stringify({ setup, questions, currentIndex, originalQuestionIds });
+    window.sessionStorage.setItem(draftKey, draft);
+  }, [setup, questions, currentIndex, originalQuestionIds, quizIdParam]);
 
   useEffect(() => {
     return () => {
@@ -313,6 +350,9 @@ function BuilderPageContent() {
           : "Quiz created successfully!",
         { id: saveId },
       );
+      // Clear draft after successful save
+      const draftKey = quizIdParam ? `quizDraft_${quizIdParam}` : "quizDraft_new";
+      window.sessionStorage.removeItem(draftKey);
       router.push("/teacher/dashboard");
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Failed to save quiz", {
@@ -515,11 +555,12 @@ function BuilderPageContent() {
         {/* ─── Control Bar: Tabs + Time/Points + Delete ─── */}
         <div className="flex items-center gap-3 flex-wrap shrink-0 bg-slate-900/92 border border-slate-700/70 rounded-2xl px-2.5 sm:px-4 py-2.5 shadow-[0_10px_24px_rgba(2,6,23,0.35)]">
           {/* Question navigation pills */}
-          <div className="flex items-center gap-2">
+          <div ref={pillsRef} className="flex items-center gap-2 overflow-x-auto w-full scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
             {questions.map((q, idx) => (
               <motion.button
                 type="button"
                 key={q.id}
+                ref={currentIndex === idx ? (el) => { el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); } : undefined}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setCurrentIndex(idx)}
