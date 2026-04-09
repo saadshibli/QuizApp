@@ -188,6 +188,13 @@ export const sessionAPI = {
   getQuizHistory: () => apiClient.get("/api/sessions/history"),
 };
 
+// ==================== AI APIs ====================
+
+export const aiAPI = {
+  generateQuestions: (data: { topic: string; count: number; difficulty: string }) =>
+    apiClient.post("/api/ai/generate-questions", data),
+};
+
 // ==================== ADMIN APIs ====================
 
 export const adminAPI = {

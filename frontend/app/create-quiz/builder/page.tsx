@@ -8,7 +8,7 @@ import React, {
   useRef,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { quizAPI } from "@/lib/api";
+import { quizAPI, aiAPI } from "@/lib/api";
 import Image from "next/image";
 import SpaceBackground from "@/components/SpaceBackground";
 import FloatingParticles from "@/components/FloatingParticles";
@@ -27,6 +27,10 @@ import {
   Settings2,
   Timer,
   Hand,
+  FileText,
+  Sparkles,
+  X,
+  Loader2,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "@/lib/store/authStore";
@@ -90,6 +94,13 @@ function BuilderPageContent() {
   const [showCorrectFeedback, setShowCorrectFeedback] = useState(false);
   const [feedbackPulseKey, setFeedbackPulseKey] = useState(0);
   const [validationModal, setValidationModal] = useState<string | null>(null);
+  const [showBulkPaste, setShowBulkPaste] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+  const [showAiGenerate, setShowAiGenerate] = useState(false);
+  const [aiTopic, setAiTopic] = useState("");
+  const [aiCount, setAiCount] = useState(5);
+  const [aiDifficulty, setAiDifficulty] = useState("medium");
+  const [aiLoading, setAiLoading] = useState(false);
 
   const loadExistingQuiz = useCallback(
     async (id: string) => {
@@ -281,6 +292,150 @@ function BuilderPageContent() {
     const updated = questions.filter((_, idx) => idx !== currentIndex);
     setQuestions(updated);
     setCurrentIndex(Math.max(0, currentIndex - 1));
+  };
+
+  // Parse bulk pasted text into questions
+  const handleBulkPaste = () => {
+    if (!bulkText.trim()) return;
+    const lines = bulkText.split("\n").map(l => l.trim()).filter(Boolean);
+    const parsed: Question[] = [];
+    let current: { text: string; options: { label: string; text: string }[]; answer: string } | null = null;
+
+    for (const line of lines) {
+      // Detect answer line: "Answer: B) ..." or "Answer: B"
+      const answerMatch = line.match(/^Answer\s*:\s*([A-Z])\)?/i);
+      if (answerMatch && current) {
+        current.answer = answerMatch[1].toUpperCase();
+        // Finalize this question
+        const correctLetter = current.answer;
+        const opts = current.options.map(o => ({
+          id: generateId(),
+          text: o.text,
+          isCorrect: o.label === correctLetter,
+        }));
+        while (opts.length < 2) opts.push({ id: generateId(), text: "", isCorrect: false });
+        parsed.push({
+          id: generateId(),
+          text: current.text,
+          timeLimit: setup!.timeLimit,
+          points: setup!.points,
+          options: opts,
+        });
+        current = null;
+        continue;
+      }
+
+      // Detect option line: "A) ...", "A. ...", "A: ..."
+      const optMatch = line.match(/^([A-Z])\s*[).\-:]\s*(.+)/i);
+      if (optMatch && current) {
+        current.options.push({ label: optMatch[1].toUpperCase(), text: optMatch[2].trim() });
+        continue;
+      }
+
+      // Otherwise it's a question line (could start with number, or just text)
+      const qText = line.replace(/^\d+[).:\-]\s*/, "").trim();
+      if (qText.length > 3) {
+        // If there's an unfinished question without answer, finalize it
+        if (current && current.options.length >= 2) {
+          const opts = current.options.map((o, i) => ({
+            id: generateId(),
+            text: o.text,
+            isCorrect: i === 0,
+          }));
+          parsed.push({
+            id: generateId(),
+            text: current.text,
+            timeLimit: setup!.timeLimit,
+            points: setup!.points,
+            options: opts,
+          });
+        }
+        current = { text: qText, options: [], answer: "" };
+      }
+    }
+
+    // Handle last question if not finalized
+    if (current && current.options.length >= 2) {
+      const correctLetter = current.answer;
+      const opts = current.options.map((o, i) => ({
+        id: generateId(),
+        text: o.text,
+        isCorrect: correctLetter ? o.label === correctLetter : i === 0,
+      }));
+      parsed.push({
+        id: generateId(),
+        text: current.text,
+        timeLimit: setup!.timeLimit,
+        points: setup!.points,
+        options: opts,
+      });
+    }
+
+    if (parsed.length === 0) {
+      toast.error("Could not parse any questions. Check the format.");
+      return;
+    }
+
+    // Replace empty first question or append
+    if (questions.length === 1 && !questions[0].text.trim()) {
+      setQuestions(parsed);
+    } else {
+      setQuestions([...questions, ...parsed]);
+    }
+    setCurrentIndex(questions.length === 1 && !questions[0].text.trim() ? 0 : questions.length);
+    setShowBulkPaste(false);
+    setBulkText("");
+    toast.success(`Imported ${parsed.length} question${parsed.length > 1 ? "s" : ""}!`);
+  };
+
+  // AI generate questions
+  const handleAiGenerate = async () => {
+    if (!aiTopic.trim()) {
+      toast.error("Enter a topic");
+      return;
+    }
+    setAiLoading(true);
+    try {
+      const res = await aiAPI.generateQuestions({
+        topic: aiTopic.trim(),
+        count: aiCount,
+        difficulty: aiDifficulty,
+      });
+      const generated: Question[] = res.data.questions.map((q: any) => {
+        const opts = q.options.map((text: string, i: number) => ({
+          id: generateId(),
+          text,
+          isCorrect: i === q.correctIndex,
+        }));
+        while (opts.length < 4) opts.push({ id: generateId(), text: "", isCorrect: false });
+        return {
+          id: generateId(),
+          text: q.question,
+          timeLimit: setup!.timeLimit,
+          points: setup!.points,
+          options: opts,
+        };
+      });
+
+      if (generated.length === 0) {
+        toast.error("AI returned no questions. Try a different topic.");
+        return;
+      }
+
+      if (questions.length === 1 && !questions[0].text.trim()) {
+        setQuestions(generated);
+      } else {
+        setQuestions([...questions, ...generated]);
+      }
+      setCurrentIndex(questions.length === 1 && !questions[0].text.trim() ? 0 : questions.length);
+      setShowAiGenerate(false);
+      setAiTopic("");
+      toast.success(`Generated ${generated.length} question${generated.length > 1 ? "s" : ""}!`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "AI generation failed");
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const handleSaveAndContinue = async () => {
@@ -485,6 +640,154 @@ function BuilderPageContent() {
         )}
       </AnimatePresence>
 
+      {/* Bulk Paste Modal */}
+      <AnimatePresence>
+        {showBulkPaste && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={() => setShowBulkPaste(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-2xl rounded-2xl border border-amber-400/30 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 shadow-[0_24px_60px_rgba(0,0,0,0.6)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button type="button" onClick={() => setShowBulkPaste(false)} className="absolute top-4 right-4 text-white/50 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-amber-300" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Bulk Paste Questions</h3>
+                  <p className="text-xs text-white/50">Paste your questions in the format below</p>
+                </div>
+              </div>
+              <div className="mb-3 p-3 rounded-xl bg-slate-800/80 border border-slate-600/50 text-xs text-white/50 font-mono leading-relaxed">
+                <p className="text-amber-300/80 font-bold mb-1">Format example:</p>
+                What is 2+2?<br/>
+                A) 3<br/>
+                B) 4<br/>
+                C) 5<br/>
+                D) 6<br/>
+                Answer: B<br/>
+                <br/>
+                Who created Node.js?<br/>
+                A) Brendan Eich<br/>
+                B) Ryan Dahl<br/>
+                ...
+              </div>
+              <textarea
+                value={bulkText}
+                onChange={(e) => setBulkText(e.target.value)}
+                placeholder="Paste your questions here..."
+                className="w-full h-48 rounded-xl bg-slate-800 border border-slate-600 text-white text-sm p-4 resize-none focus:outline-none focus:border-amber-400/60 placeholder:text-white/30"
+              />
+              <div className="flex justify-end gap-3 mt-4">
+                <button type="button" onClick={() => setShowBulkPaste(false)} className="px-4 py-2 rounded-xl bg-slate-700 text-white/70 text-sm font-bold hover:bg-slate-600">
+                  Cancel
+                </button>
+                <button type="button" onClick={handleBulkPaste} className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-bold shadow-lg hover:brightness-110">
+                  Import Questions
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* AI Generate Modal */}
+      <AnimatePresence>
+        {showAiGenerate && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={() => !aiLoading && setShowAiGenerate(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md rounded-2xl border border-purple-400/30 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 shadow-[0_24px_60px_rgba(0,0,0,0.6)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button type="button" onClick={() => !aiLoading && setShowAiGenerate(false)} className="absolute top-4 right-4 text-white/50 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-400/40 flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-purple-300" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">AI Generate</h3>
+                  <p className="text-xs text-white/50">Powered by Gemini</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-white/80 mb-1.5">Topic</label>
+                  <input
+                    type="text"
+                    value={aiTopic}
+                    onChange={(e) => setAiTopic(e.target.value)}
+                    placeholder="e.g. Node.js fundamentals, World War 2, Python basics..."
+                    className="w-full rounded-xl bg-slate-800 border border-slate-600 text-white text-sm px-4 py-2.5 focus:outline-none focus:border-purple-400/60 placeholder:text-white/30"
+                    disabled={aiLoading}
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <label className="block text-sm font-bold text-white/80 mb-1.5">Questions</label>
+                    <select
+                      value={aiCount}
+                      onChange={(e) => setAiCount(parseInt(e.target.value))}
+                      className="w-full rounded-xl bg-slate-800 border border-slate-600 text-white text-sm px-3 py-2.5 focus:outline-none focus:border-purple-400/60"
+                      disabled={aiLoading}
+                    >
+                      {[3, 5, 10, 15, 20].map(n => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-sm font-bold text-white/80 mb-1.5">Difficulty</label>
+                    <select
+                      value={aiDifficulty}
+                      onChange={(e) => setAiDifficulty(e.target.value)}
+                      className="w-full rounded-xl bg-slate-800 border border-slate-600 text-white text-sm px-3 py-2.5 focus:outline-none focus:border-purple-400/60"
+                      disabled={aiLoading}
+                    >
+                      <option value="easy">Easy</option>
+                      <option value="medium">Medium</option>
+                      <option value="hard">Hard</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-5">
+                <button type="button" onClick={() => !aiLoading && setShowAiGenerate(false)} className="px-4 py-2 rounded-xl bg-slate-700 text-white/70 text-sm font-bold hover:bg-slate-600" disabled={aiLoading}>
+                  Cancel
+                </button>
+                <button type="button" onClick={handleAiGenerate} disabled={aiLoading} className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-sm font-bold shadow-lg hover:brightness-110 flex items-center gap-2 disabled:opacity-60">
+                  {aiLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</> : <><Sparkles className="w-4 h-4" /> Generate</>}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Background */}
       <div className="absolute inset-0 z-0 bg-deep">
         <SpaceBackground />
@@ -581,6 +884,24 @@ function BuilderPageContent() {
               className="flex-shrink-0 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl border-2 border-dashed border-slate-500 bg-slate-800/70 hover:bg-slate-700 transition-all font-bold text-sm text-slate-300 hover:text-white flex items-center gap-1.5"
             >
               <Plus className="w-4 h-4" /> New
+            </motion.button>
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowBulkPaste(true)}
+              className="flex-shrink-0 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 transition-all font-bold text-sm text-amber-200 flex items-center gap-1.5"
+            >
+              <FileText className="w-4 h-4" /> Paste
+            </motion.button>
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => toast("AI Generate coming soon!", { icon: "✨" })}
+              className="flex-shrink-0 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 transition-all font-bold text-sm text-purple-200 flex items-center gap-1.5 opacity-70"
+            >
+              <Sparkles className="w-4 h-4" /> AI Generate
             </motion.button>
           </div>
 

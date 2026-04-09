@@ -18,6 +18,7 @@ const quizRoutes = require("./routes/quizRoutes");
 const questionRoutes = require("./routes/questionRoutes");
 const sessionRoutes = require("./routes/sessionRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const aiRoutes = require("./routes/aiRoutes");
 
 // Import middleware
 const { apiLimiter } = require("./middleware/rateLimiter");
@@ -121,6 +122,7 @@ app.use("/api/quizzes", quizRoutes);
 app.use("/api/questions", questionRoutes);
 app.use("/api/sessions", sessionRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/ai", aiRoutes);
 
 // 404 handler
 app.use((req, res) => {
