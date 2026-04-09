@@ -121,7 +121,9 @@ CREATE INDEX IF NOT EXISTS idx_participants_session_id ON participants(session_i
 CREATE INDEX IF NOT EXISTS idx_participants_user_id ON participants(user_id);
 CREATE INDEX IF NOT EXISTS idx_answers_participant_id ON answers(participant_id);
 CREATE INDEX IF NOT EXISTS idx_answers_question_id ON answers(question_id);
+CREATE INDEX IF NOT EXISTS idx_answers_option_id ON answers(option_id);
 CREATE INDEX IF NOT EXISTS idx_leaderboard_session_id ON leaderboard(session_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status);
 
 -- Add advance_mode columns to existing quizzes tables
 ALTER TABLE IF EXISTS quizzes ADD COLUMN IF NOT EXISTS advance_mode VARCHAR(10) DEFAULT 'auto';

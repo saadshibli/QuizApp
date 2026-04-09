@@ -43,12 +43,26 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 
-function AvatarBubble({ avatar, name, className }: { avatar?: string | null; name: string; className: string }) {
+function AvatarBubble({
+  avatar,
+  name,
+  className,
+}: {
+  avatar?: string | null;
+  name: string;
+  className: string;
+}) {
   const initial = (name || "?").charAt(0).toUpperCase();
   if (avatar && avatar.startsWith("http")) {
     return (
       <div className={`${className} overflow-hidden`}>
-        <Image src={avatar} alt={name} fill className="object-cover" sizes="80px" />
+        <Image
+          src={avatar}
+          alt={name}
+          fill
+          className="object-cover"
+          sizes="80px"
+        />
       </div>
     );
   }
@@ -97,7 +111,10 @@ export default function QuizPlayerPage() {
   const { user, token, logout, _hasHydrated } = useAuthStore();
 
   const isGuest = false;
-  const exitPath = user?.role === "teacher" || user?.role === "admin" ? "/teacher/dashboard" : "/student/dashboard";
+  const exitPath =
+    user?.role === "teacher" || user?.role === "admin"
+      ? "/teacher/dashboard"
+      : "/student/dashboard";
 
   // Resolve session code to numeric ID
   const [sessionId, setSessionIdResolved] = useState("");
@@ -693,6 +710,7 @@ export default function QuizPlayerPage() {
             This session doesn&apos;t exist, has ended, or the code is invalid.
           </p>
           <button
+            type="button"
             onClick={() => router.replace("/join-quiz")}
             className="btn-cartoon btn-cartoon-pink px-6 py-2 text-sm"
           >
@@ -1030,7 +1048,11 @@ export default function QuizPlayerPage() {
               {/* Top: Player info + question meta */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3 px-1">
                 <div className="rounded-2xl border border-cyan-100/35 bg-gradient-to-br from-slate-900/92 via-slate-800/88 to-indigo-950/84 backdrop-blur-xl px-4 py-3 flex items-center gap-3 shadow-[0_14px_36px_rgba(0,0,0,0.56)]">
-                  <AvatarBubble avatar={user?.avatar} name={user?.name || "P"} className="w-11 h-11 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-white font-black flex items-center justify-center border border-white/40 shadow-[0_0_14px_rgba(59,130,246,0.55)] relative text-lg" />
+                  <AvatarBubble
+                    avatar={user?.avatar}
+                    name={user?.name || "P"}
+                    className="w-11 h-11 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-white font-black flex items-center justify-center border border-white/40 shadow-[0_0_14px_rgba(59,130,246,0.55)] relative text-lg"
+                  />
                   <div className="min-w-0">
                     <p className="text-cyan-50 font-black text-sm truncate">
                       {user?.name || "Player"}
@@ -1046,7 +1068,8 @@ export default function QuizPlayerPage() {
                 </div>
                 <div className="rounded-2xl border border-cyan-100/35 bg-gradient-to-br from-slate-900/92 via-slate-800/88 to-indigo-950/84 backdrop-blur-xl px-4 py-3 flex items-center justify-between shadow-[0_14px_36px_rgba(0,0,0,0.56)]">
                   <span className="text-white/85 font-black uppercase tracking-wider text-sm">
-                    Question {questionNumber}{totalQuestions > 0 ? ` of ${totalQuestions}` : ""}
+                    Question {questionNumber}
+                    {totalQuestions > 0 ? ` of ${totalQuestions}` : ""}
                   </span>
                   <div className="flex items-center gap-2">
                     {streak >= 1 && (
@@ -1908,12 +1931,14 @@ export default function QuizPlayerPage() {
                       transition={{ delay: 0.5 }}
                       className="rounded-xl p-3 md:p-6 text-center"
                       style={{
-                        background: advanceMode === "auto" && timeRemaining > 0
-                          ? "linear-gradient(135deg, rgba(139,92,246,0.15), rgba(59,130,246,0.1))"
-                          : "rgba(255,255,255,0.03)",
-                        border: advanceMode === "auto" && timeRemaining > 0
-                          ? "1px solid rgba(139,92,246,0.3)"
-                          : "1px solid rgba(255,255,255,0.06)",
+                        background:
+                          advanceMode === "auto" && timeRemaining > 0
+                            ? "linear-gradient(135deg, rgba(139,92,246,0.15), rgba(59,130,246,0.1))"
+                            : "rgba(255,255,255,0.03)",
+                        border:
+                          advanceMode === "auto" && timeRemaining > 0
+                            ? "1px solid rgba(139,92,246,0.3)"
+                            : "1px solid rgba(255,255,255,0.06)",
                       }}
                     >
                       {advanceMode === "auto" && timeRemaining > 0 ? (
@@ -1932,7 +1957,9 @@ export default function QuizPlayerPage() {
                           <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden mt-1">
                             <motion.div
                               className="h-full rounded-full bg-gradient-to-r from-purple-500 to-cyan-400"
-                              animate={{ width: `${Math.max(0, (1 - timeRemaining / advanceSeconds) * 100)}%` }}
+                              animate={{
+                                width: `${Math.max(0, (1 - timeRemaining / advanceSeconds) * 100)}%`,
+                              }}
                               transition={{ duration: 0.5, ease: "linear" }}
                             />
                           </div>
@@ -2238,12 +2265,21 @@ export default function QuizPlayerPage() {
                                       : {}
                                   }
                                 >
-                                  {data.avatar && data.avatar.startsWith("http") ? (
-                                    <Image src={data.avatar} alt={data.nickname || "?"} fill className="object-cover" sizes="80px" />
+                                  {data.avatar &&
+                                  data.avatar.startsWith("http") ? (
+                                    <Image
+                                      src={data.avatar}
+                                      alt={data.nickname || "?"}
+                                      fill
+                                      className="object-cover"
+                                      sizes="80px"
+                                    />
                                   ) : data.avatar ? (
                                     data.avatar
                                   ) : (
-                                    (data.nickname || "?").charAt(0).toUpperCase()
+                                    (data.nickname || "?")
+                                      .charAt(0)
+                                      .toUpperCase()
                                   )}
                                   <span className="absolute -bottom-1 -right-1 text-sm md:text-base drop-shadow-lg">
                                     {s.medal}

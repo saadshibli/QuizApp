@@ -1,26 +1,12 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import SpaceBackground from "@/components/SpaceBackground";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useRouter, useParams } from "next/navigation";
 import { sessionAPI, quizAPI } from "@/lib/api";
 import Image from "next/image";
 
-function AvatarBubble({ avatar, name, className }: { avatar?: string | null; name: string; className: string }) {
-  const initial = (name || "?").charAt(0).toUpperCase();
-  if (avatar && avatar.startsWith("http")) {
-    return (
-      <div className={`${className} overflow-hidden`}>
-        <Image src={avatar} alt={name} fill className="object-cover" sizes="80px" />
-      </div>
-    );
-  }
-  if (avatar && !avatar.startsWith("http")) {
-    return <div className={className}>{avatar}</div>;
-  }
-  return <div className={className}>{initial}</div>;
-}
 import {
   initializeSocket,
   getSocket,
@@ -35,10 +21,6 @@ import {
   ArrowRight,
   Activity,
   Zap,
-  CheckCircle2,
-  StopCircle,
-  Gamepad2,
-  Sparkles,
   Trophy,
   Clock,
 } from "lucide-react";
@@ -66,7 +48,7 @@ export default function HostSessionPage() {
   const [sessionId, setSessionId] = useState<string>("");
   const [sessionCode, setSessionCode] = useState<string>("");
   const [notFound, setNotFound] = useState(false);
-  const [quizTitle, setQuizTitle] = useState<string>("");
+  const [, setQuizTitle] = useState<string>("");
   const [players, setPlayers] = useState<any[]>([]);
   const [sessionState, setSessionState] = useState<
     "waiting" | "startCountdown" | "active" | "leaderboard" | "finished"
@@ -77,7 +59,7 @@ export default function HostSessionPage() {
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [copied, setCopied] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [totalQuestions, setTotalQuestions] = useState(0);
+  const [, setTotalQuestions] = useState(0);
   const [advanceMode, setAdvanceMode] = useState<"auto" | "manual">("auto");
   const [advanceSeconds, setAdvanceSeconds] = useState(5);
 
@@ -97,9 +79,7 @@ export default function HostSessionPage() {
   const questionStartTimeRef = useRef<number>(0);
   const questionDurationRef = useRef<number>(30);
   const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
-  const LEADERBOARD_DISPLAY_S = 5;
 
-  const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
   const joinUrl =
     typeof window !== "undefined" && sessionCode
       ? window.location.origin + "/join-quiz?code=" + sessionCode
@@ -325,7 +305,8 @@ export default function HostSessionPage() {
       questionDurationRef.current = data.timeLimit || 30;
 
       if (data.totalQuestions) setTotalQuestions(data.totalQuestions);
-      if (data.currentQuestionIndex !== undefined) setCurrentQuestionIndex(data.currentQuestionIndex);
+      if (data.currentQuestionIndex !== undefined)
+        setCurrentQuestionIndex(data.currentQuestionIndex);
       if (data.advanceMode) setAdvanceMode(data.advanceMode);
       if (data.advanceSeconds) setAdvanceSeconds(data.advanceSeconds);
 
@@ -593,26 +574,13 @@ export default function HostSessionPage() {
         autoAdvanceRef.current = null;
       }
     };
-  }, [sessionState, isActionLoading, handleNextQuestion, advanceMode, advanceSeconds]);
-
-  const handleEndSession = async () => {
-    try {
-      const lbRes = await sessionAPI.getLeaderboard(sessionId);
-      setLeaderboard(normalizeLeaderboard(lbRes.data || []));
-
-      const socket = getSocket();
-      if (socket) {
-        socket.emit("broadcastQuizEnded", {
-          sessionId: parseInt(sessionId),
-          finalLeaderboard: lbRes.data,
-        });
-      }
-      setSessionState("finished");
-      toast("Session ended!", { icon: "🏁" });
-    } catch (err: any) {
-      toast.error("Failed to end session");
-    }
-  };
+  }, [
+    sessionState,
+    isActionLoading,
+    handleNextQuestion,
+    advanceMode,
+    advanceSeconds,
+  ]);
 
   const copyLink = () => {
     navigator.clipboard.writeText(joinUrl);
@@ -636,6 +604,7 @@ export default function HostSessionPage() {
             This session doesn&apos;t exist or has already ended.
           </p>
           <button
+            type="button"
             onClick={() => router.replace("/teacher/dashboard")}
             className="btn-cartoon btn-cartoon-pink px-6 py-2 text-sm"
           >
@@ -800,8 +769,16 @@ export default function HostSessionPage() {
                       className="p-3 bg-white rounded-2xl shadow-lg border-4 border-white/40 hover:scale-105 transition-transform duration-300 relative"
                     >
                       <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/30 to-purple-500/30 rounded-2xl blur-md -z-10 opacity-70" />
-                      <QRCodeSVG value={joinUrl} size={100} className="sm:hidden" />
-                      <QRCodeSVG value={joinUrl} size={140} className="hidden sm:block" />
+                      <QRCodeSVG
+                        value={joinUrl}
+                        size={100}
+                        className="sm:hidden"
+                      />
+                      <QRCodeSVG
+                        value={joinUrl}
+                        size={140}
+                        className="hidden sm:block"
+                      />
                     </motion.div>
                     <motion.span
                       className="mt-3 text-pink-300 text-[11px] font-black uppercase tracking-widest bg-pink-500/10 px-3 py-1 rounded-full border border-pink-500/30 shadow-[0_0_15px_rgba(236,72,153,0.25)] flex items-center gap-2"
@@ -974,11 +951,19 @@ export default function HostSessionPage() {
                                 className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-black shadow-lg border-2 border-white/30 bg-gradient-to-br ${AVATAR_GRADIENTS[index % AVATAR_GRADIENTS.length]} group-hover:scale-110 group-hover:shadow-[0_0_20px_rgba(168,85,247,0.8)] transition-all relative z-10 overflow-hidden`}
                               >
                                 {p.avatar && p.avatar.startsWith("http") ? (
-                                  <Image src={p.avatar} alt={p.nickname || p.username || "P"} fill className="object-cover" sizes="56px" />
+                                  <Image
+                                    src={p.avatar}
+                                    alt={p.nickname || p.username || "P"}
+                                    fill
+                                    className="object-cover"
+                                    sizes="56px"
+                                  />
                                 ) : p.avatar ? (
                                   p.avatar
                                 ) : (
-                                  (p.nickname || p.username || "P").charAt(0).toUpperCase()
+                                  (p.nickname || p.username || "P")
+                                    .charAt(0)
+                                    .toUpperCase()
                                 )}
                               </div>
                               {/* Animated pulse ring on hover */}
@@ -1144,7 +1129,10 @@ export default function HostSessionPage() {
 
             <div className="flex gap-2 sm:gap-4 items-center">
               <div className="cartoon-panel-soft px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl flex gap-1.5 sm:gap-2 items-center text-sm border-white/10">
-                <Users size={16} className="text-cyan-400 sm:[&]:w-[18px] sm:[&]:h-[18px]" />
+                <Users
+                  size={16}
+                  className="text-cyan-400 sm:[&]:w-[18px] sm:[&]:h-[18px]"
+                />
                 <span className="font-bold text-white text-base sm:text-lg">
                   {players.length}
                 </span>
@@ -1181,7 +1169,10 @@ export default function HostSessionPage() {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
                 className="fixed inset-0 z-50 flex items-center justify-center"
-                style={{ background: "rgba(2,6,23,0.85)", backdropFilter: "blur(12px)" }}
+                style={{
+                  background: "rgba(2,6,23,0.85)",
+                  backdropFilter: "blur(12px)",
+                }}
               >
                 <motion.div
                   initial={{ opacity: 0, scale: 0.85, y: 30 }}
@@ -1207,23 +1198,37 @@ export default function HostSessionPage() {
                       <motion.div
                         className="absolute inset-0 rounded-full"
                         animate={{ scale: [1, 1.5, 1.5], opacity: [0.4, 0, 0] }}
-                        transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
+                        transition={{
+                          duration: 1.5,
+                          repeat: Infinity,
+                          ease: "easeOut",
+                        }}
                         style={{ border: "3px solid rgba(34,211,238,0.5)" }}
                       />
                       <motion.div
                         className="absolute inset-0 rounded-full"
                         animate={{ scale: [1, 1.3, 1.3], opacity: [0.3, 0, 0] }}
-                        transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut", delay: 0.3 }}
+                        transition={{
+                          duration: 1.5,
+                          repeat: Infinity,
+                          ease: "easeOut",
+                          delay: 0.3,
+                        }}
                         style={{ border: "2px solid rgba(34,211,238,0.3)" }}
                       />
                       <div className="absolute inset-0 flex items-center justify-center">
                         <motion.div
-                          animate={{ scale: [1, 1.08, 1], rotate: [0, 5, 0, -5, 0] }}
+                          animate={{
+                            scale: [1, 1.08, 1],
+                            rotate: [0, 5, 0, -5, 0],
+                          }}
                           transition={{ duration: 1.1, repeat: Infinity }}
                           className="w-24 h-24 rounded-full flex items-center justify-center"
                           style={{
-                            background: "linear-gradient(135deg, rgba(34,211,238,0.34), rgba(59,130,246,0.44))",
-                            boxShadow: "0 0 30px rgba(34,211,238,0.28), inset 0 0 20px rgba(255,255,255,0.08)",
+                            background:
+                              "linear-gradient(135deg, rgba(34,211,238,0.34), rgba(59,130,246,0.44))",
+                            boxShadow:
+                              "0 0 30px rgba(34,211,238,0.28), inset 0 0 20px rgba(255,255,255,0.08)",
                           }}
                         >
                           <Clock className="w-12 h-12 text-white drop-shadow-lg" />
@@ -1239,7 +1244,8 @@ export default function HostSessionPage() {
                       transition={{ duration: 0.25 }}
                       className="text-5xl md:text-6xl font-black font-display text-white mb-3 relative z-10"
                       style={{
-                        textShadow: "0 0 40px rgba(34,211,238,0.5), 0 6px 28px rgba(0,0,0,0.9)",
+                        textShadow:
+                          "0 0 40px rgba(34,211,238,0.5), 0 6px 28px rgba(0,0,0,0.9)",
                       }}
                     >
                       {startupCountdown}
@@ -1260,7 +1266,9 @@ export default function HostSessionPage() {
                       <div className="h-3 w-full rounded-full bg-black/55 overflow-hidden border border-cyan-100/30 shadow-[inset_0_0_10px_rgba(0,0,0,0.6)]">
                         <motion.div
                           className="h-full rounded-full bg-gradient-to-r from-cyan-300 via-blue-400 to-indigo-400 shadow-[0_0_14px_rgba(56,189,248,0.75)]"
-                          animate={{ width: `${((5 - startupCountdown) / 5) * 100}%` }}
+                          animate={{
+                            width: `${((5 - startupCountdown) / 5) * 100}%`,
+                          }}
                           transition={{ duration: 0.35, ease: "easeOut" }}
                         />
                       </div>
@@ -1308,107 +1316,152 @@ export default function HostSessionPage() {
 
                   {/* Centered Circular Timer — same as student view */}
                   {(sessionState === "active" ||
-                    sessionState === "startCountdown") && (() => {
-                    const hostDuration = currentQuestion.time_limit || 30;
-                    const hostTimerVal = sessionState === "startCountdown" ? startupCountdown : timeRemaining;
-                    const hostMaxVal = sessionState === "startCountdown" ? 5 : hostDuration;
-                    const hostProgress = Math.max(0, Math.min(100, (hostTimerVal / hostMaxVal) * 100));
-                    const ringRadius = 56;
-                    const ringCircumference = 2 * Math.PI * ringRadius;
-                    const ringOffset = ringCircumference - (hostProgress / 100) * ringCircumference;
-                    const tColor = hostProgress > 60
-                      ? { stroke: "#22c55e", text: "text-emerald-200", glow: "rgba(34,197,94,0.7)", bg: "border-emerald-400/60" }
-                      : hostProgress > 30
-                        ? { stroke: "#eab308", text: "text-yellow-200", glow: "rgba(234,179,8,0.7)", bg: "border-yellow-400/60" }
-                        : { stroke: "#ef4444", text: "text-red-200", glow: "rgba(239,68,68,0.9)", bg: "border-red-400/60" };
-                    if (sessionState === "startCountdown") {
-                      Object.assign(tColor, { stroke: "#22d3ee", text: "text-cyan-200", glow: "rgba(34,211,238,0.7)", bg: "border-cyan-400/60" });
-                    }
-                    return (
-                    <div className="flex justify-center my-3">
-                      <motion.div
-                        className={`relative z-20 w-28 h-28 lg:w-32 lg:h-32 rounded-full border-2 ${tColor.bg} bg-gradient-to-br from-slate-900/93 via-slate-800/88 to-indigo-950/84 backdrop-blur-xl flex items-center justify-center shadow-[0_18px_42px_rgba(0,0,0,0.62)]`}
-                        animate={
-                          hostTimerVal <= 5 && sessionState === "active"
-                            ? { scale: [1, 1.1, 1], x: [0, -4, 4, -4, 4, 0] }
-                            : hostTimerVal <= 10 && sessionState === "active"
-                              ? { scale: [1, 1.04, 1] }
-                              : { scale: 1 }
-                        }
-                        transition={{
-                          duration: hostTimerVal <= 5 ? 0.5 : 0.8,
-                          repeat: Infinity,
-                        }}
-                      >
-                        {/* Urgency pulse ring */}
-                        {hostTimerVal <= 5 && sessionState === "active" && (
+                    sessionState === "startCountdown") &&
+                    (() => {
+                      const hostDuration = currentQuestion.time_limit || 30;
+                      const hostTimerVal =
+                        sessionState === "startCountdown"
+                          ? startupCountdown
+                          : timeRemaining;
+                      const hostMaxVal =
+                        sessionState === "startCountdown" ? 5 : hostDuration;
+                      const hostProgress = Math.max(
+                        0,
+                        Math.min(100, (hostTimerVal / hostMaxVal) * 100),
+                      );
+                      const ringRadius = 56;
+                      const ringCircumference = 2 * Math.PI * ringRadius;
+                      const ringOffset =
+                        ringCircumference -
+                        (hostProgress / 100) * ringCircumference;
+                      const tColor =
+                        hostProgress > 60
+                          ? {
+                              stroke: "#22c55e",
+                              text: "text-emerald-200",
+                              glow: "rgba(34,197,94,0.7)",
+                              bg: "border-emerald-400/60",
+                            }
+                          : hostProgress > 30
+                            ? {
+                                stroke: "#eab308",
+                                text: "text-yellow-200",
+                                glow: "rgba(234,179,8,0.7)",
+                                bg: "border-yellow-400/60",
+                              }
+                            : {
+                                stroke: "#ef4444",
+                                text: "text-red-200",
+                                glow: "rgba(239,68,68,0.9)",
+                                bg: "border-red-400/60",
+                              };
+                      if (sessionState === "startCountdown") {
+                        Object.assign(tColor, {
+                          stroke: "#22d3ee",
+                          text: "text-cyan-200",
+                          glow: "rgba(34,211,238,0.7)",
+                          bg: "border-cyan-400/60",
+                        });
+                      }
+                      return (
+                        <div className="flex justify-center my-3">
                           <motion.div
-                            className="absolute inset-0 rounded-full border-[3px] border-red-400/80"
-                            animate={{ scale: [1, 1.25], opacity: [0.9, 0] }}
+                            className={`relative z-20 w-28 h-28 lg:w-32 lg:h-32 rounded-full border-2 ${tColor.bg} bg-gradient-to-br from-slate-900/93 via-slate-800/88 to-indigo-950/84 backdrop-blur-xl flex items-center justify-center shadow-[0_18px_42px_rgba(0,0,0,0.62)]`}
+                            animate={
+                              hostTimerVal <= 5 && sessionState === "active"
+                                ? {
+                                    scale: [1, 1.1, 1],
+                                    x: [0, -4, 4, -4, 4, 0],
+                                  }
+                                : hostTimerVal <= 10 &&
+                                    sessionState === "active"
+                                  ? { scale: [1, 1.04, 1] }
+                                  : { scale: 1 }
+                            }
                             transition={{
-                              duration: 0.7,
+                              duration: hostTimerVal <= 5 ? 0.5 : 0.8,
                               repeat: Infinity,
-                              ease: "easeOut",
                             }}
-                          />
-                        )}
-                        {hostTimerVal <= 10 && hostTimerVal > 5 && sessionState === "active" && (
-                          <motion.div
-                            className="absolute inset-0 rounded-full border-2 border-yellow-400/50"
-                            animate={{ scale: [1, 1.15], opacity: [0.6, 0] }}
-                            transition={{
-                              duration: 1.2,
-                              repeat: Infinity,
-                              ease: "easeOut",
-                            }}
-                          />
-                        )}
-                        <svg
-                          className="absolute inset-0 w-full h-full -rotate-90"
-                          viewBox="0 0 140 140"
-                        >
-                          <circle
-                            cx="70"
-                            cy="70"
-                            r={ringRadius}
-                            fill="none"
-                            stroke="rgba(255,255,255,0.12)"
-                            strokeWidth="10"
-                          />
-                          <motion.circle
-                            cx="70"
-                            cy="70"
-                            r={ringRadius}
-                            fill="none"
-                            stroke={tColor.stroke}
-                            strokeWidth="10"
-                            strokeLinecap="round"
-                            strokeDasharray={ringCircumference}
-                            animate={{ strokeDashoffset: ringOffset }}
-                            transition={{ duration: 0.45, ease: "easeOut" }}
-                            style={{
-                              filter: `drop-shadow(0 0 12px ${tColor.glow})`,
-                            }}
-                          />
-                        </svg>
-                        <div className="relative z-10 text-center">
-                          <motion.div
-                            key={hostTimerVal}
-                            initial={{ scale: 1.3, opacity: 0.7 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ duration: 0.2 }}
-                            className={`font-mono text-4xl lg:text-5xl font-black leading-none ${tColor.text}`}
                           >
-                            {hostTimerVal}
+                            {/* Urgency pulse ring */}
+                            {hostTimerVal <= 5 && sessionState === "active" && (
+                              <motion.div
+                                className="absolute inset-0 rounded-full border-[3px] border-red-400/80"
+                                animate={{
+                                  scale: [1, 1.25],
+                                  opacity: [0.9, 0],
+                                }}
+                                transition={{
+                                  duration: 0.7,
+                                  repeat: Infinity,
+                                  ease: "easeOut",
+                                }}
+                              />
+                            )}
+                            {hostTimerVal <= 10 &&
+                              hostTimerVal > 5 &&
+                              sessionState === "active" && (
+                                <motion.div
+                                  className="absolute inset-0 rounded-full border-2 border-yellow-400/50"
+                                  animate={{
+                                    scale: [1, 1.15],
+                                    opacity: [0.6, 0],
+                                  }}
+                                  transition={{
+                                    duration: 1.2,
+                                    repeat: Infinity,
+                                    ease: "easeOut",
+                                  }}
+                                />
+                              )}
+                            <svg
+                              className="absolute inset-0 w-full h-full -rotate-90"
+                              viewBox="0 0 140 140"
+                            >
+                              <circle
+                                cx="70"
+                                cy="70"
+                                r={ringRadius}
+                                fill="none"
+                                stroke="rgba(255,255,255,0.12)"
+                                strokeWidth="10"
+                              />
+                              <motion.circle
+                                cx="70"
+                                cy="70"
+                                r={ringRadius}
+                                fill="none"
+                                stroke={tColor.stroke}
+                                strokeWidth="10"
+                                strokeLinecap="round"
+                                strokeDasharray={ringCircumference}
+                                animate={{ strokeDashoffset: ringOffset }}
+                                transition={{ duration: 0.45, ease: "easeOut" }}
+                                style={{
+                                  filter: `drop-shadow(0 0 12px ${tColor.glow})`,
+                                }}
+                              />
+                            </svg>
+                            <div className="relative z-10 text-center">
+                              <motion.div
+                                key={hostTimerVal}
+                                initial={{ scale: 1.3, opacity: 0.7 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                transition={{ duration: 0.2 }}
+                                className={`font-mono text-4xl lg:text-5xl font-black leading-none ${tColor.text}`}
+                              >
+                                {hostTimerVal}
+                              </motion.div>
+                              <div className="text-[11px] uppercase tracking-widest text-white/70 font-bold mt-1">
+                                {sessionState === "startCountdown"
+                                  ? "start"
+                                  : "seconds"}
+                              </div>
+                            </div>
                           </motion.div>
-                          <div className="text-[11px] uppercase tracking-widest text-white/70 font-bold mt-1">
-                            {sessionState === "startCountdown" ? "start" : "seconds"}
-                          </div>
                         </div>
-                      </motion.div>
-                    </div>
-                    );
-                  })()}
+                      );
+                    })()}
 
                   {/* Question Title */}
                   <div className="flex items-center justify-center py-1 lg:py-2">
@@ -1571,124 +1624,153 @@ export default function HostSessionPage() {
                     </AnimatePresence>
 
                     {/* KBC-style Vertical Bar Chart — shown in reveal/leaderboard state */}
-                    {sessionState === "leaderboard" && currentQuestion?.options && totalAnswers > 0 && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.4, type: "spring", stiffness: 300, damping: 25 }}
-                        className="mt-5 mx-auto w-full max-w-md rounded-2xl overflow-hidden"
-                        style={{
-                          background: "linear-gradient(180deg, rgba(0,20,80,0.9) 0%, rgba(0,8,50,0.95) 100%)",
-                          border: "1px solid rgba(100,160,255,0.2)",
-                          boxShadow: "0 0 40px rgba(30,80,220,0.15), inset 0 1px 0 rgba(255,255,255,0.06)",
-                        }}
-                      >
-                        {/* Header strip */}
-                        <div
-                          className="py-2 px-4 text-center"
+                    {sessionState === "leaderboard" &&
+                      currentQuestion?.options &&
+                      totalAnswers > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{
+                            delay: 0.4,
+                            type: "spring",
+                            stiffness: 300,
+                            damping: 25,
+                          }}
+                          className="mt-5 mx-auto w-full max-w-md rounded-2xl overflow-hidden"
                           style={{
-                            background: "linear-gradient(90deg, rgba(30,80,200,0.3), rgba(100,60,220,0.3), rgba(30,80,200,0.3))",
-                            borderBottom: "1px solid rgba(100,160,255,0.15)",
+                            background:
+                              "linear-gradient(180deg, rgba(0,20,80,0.9) 0%, rgba(0,8,50,0.95) 100%)",
+                            border: "1px solid rgba(100,160,255,0.2)",
+                            boxShadow:
+                              "0 0 40px rgba(30,80,220,0.15), inset 0 1px 0 rgba(255,255,255,0.06)",
                           }}
                         >
-                          <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-blue-200/70">
-                            📊 Audience Poll
-                          </span>
-                        </div>
-
-                        {/* Bars area */}
-                        <div className="px-6 pt-5 pb-4">
-                          <div className="flex items-end justify-center gap-4 h-40">
-                            {currentQuestion.options.map((opt: any, idx: number) => {
-                              const count = answerStats[opt.id] || 0;
-                              const pct = totalAnswers > 0 ? Math.round((count / totalAnswers) * 100) : 0;
-                              const isCorrectOpt = opt.is_correct;
-                              const barGradients = [
-                                "from-orange-400 via-orange-500 to-orange-600",
-                                "from-blue-400 via-blue-500 to-blue-600",
-                                "from-yellow-400 via-amber-500 to-amber-600",
-                                "from-green-400 via-emerald-500 to-emerald-600",
-                                "from-violet-400 via-purple-500 to-purple-600",
-                                "from-pink-400 via-rose-500 to-rose-600",
-                              ];
-                              const barGlows = [
-                                "rgba(251,146,60,0.5)",
-                                "rgba(96,165,250,0.5)",
-                                "rgba(251,191,36,0.5)",
-                                "rgba(52,211,153,0.5)",
-                                "rgba(167,139,250,0.5)",
-                                "rgba(244,114,182,0.5)",
-                              ];
-                              const gradient = isCorrectOpt
-                                ? "from-emerald-300 via-emerald-400 to-emerald-600"
-                                : barGradients[idx % barGradients.length];
-                              const glow = isCorrectOpt
-                                ? "rgba(52,211,153,0.6)"
-                                : barGlows[idx % barGlows.length];
-                              const barH = pct > 0 ? Math.max(8, pct) : 3;
-                              const letter = String.fromCharCode(65 + idx);
-
-                              return (
-                                <div key={opt.id} className="flex flex-col items-center gap-2 flex-1">
-                                  {/* Percentage label */}
-                                  <motion.span
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.8 + idx * 0.12 }}
-                                    className={`text-lg font-black tabular-nums ${isCorrectOpt ? "text-emerald-300 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "text-white/80"}`}
-                                  >
-                                    {pct}%
-                                  </motion.span>
-
-                                  {/* Bar */}
-                                  <div className="w-full flex justify-center" style={{ height: "100px" }}>
-                                    <div className="w-10 h-full flex items-end">
-                                      <motion.div
-                                        className={`w-full rounded-t-md bg-gradient-to-t ${gradient}`}
-                                        initial={{ height: 0 }}
-                                        animate={{ height: `${barH}%` }}
-                                        transition={{ duration: 0.9, delay: 0.6 + idx * 0.12, ease: "easeOut" }}
-                                        style={{
-                                          minHeight: "3px",
-                                          boxShadow: `0 0 14px ${glow}, inset 0 1px 0 rgba(255,255,255,0.3)`,
-                                        }}
-                                      />
-                                    </div>
-                                  </div>
-
-                                  {/* Option letter */}
-                                  <motion.div
-                                    initial={{ opacity: 0, scale: 0.5 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    transition={{ delay: 0.5 + idx * 0.1, type: "spring" }}
-                                    className={`w-9 h-9 rounded-lg flex items-center justify-center font-black text-sm ${
-                                      isCorrectOpt
-                                        ? "bg-emerald-400 text-emerald-950 shadow-[0_0_14px_rgba(52,211,153,0.6)]"
-                                        : "bg-white/10 text-white/70 border border-white/10"
-                                    }`}
-                                  >
-                                    {letter}
-                                  </motion.div>
-                                </div>
-                              );
-                            })}
+                          {/* Header strip */}
+                          <div
+                            className="py-2 px-4 text-center"
+                            style={{
+                              background:
+                                "linear-gradient(90deg, rgba(30,80,200,0.3), rgba(100,60,220,0.3), rgba(30,80,200,0.3))",
+                              borderBottom: "1px solid rgba(100,160,255,0.15)",
+                            }}
+                          >
+                            <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-blue-200/70">
+                              📊 Audience Poll
+                            </span>
                           </div>
-                        </div>
 
-                        {/* Footer */}
-                        <div
-                          className="py-2 px-4 text-center"
-                          style={{
-                            background: "rgba(255,255,255,0.02)",
-                            borderTop: "1px solid rgba(100,160,255,0.1)",
-                          }}
-                        >
-                          <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">
-                            {totalAnswers} {totalAnswers === 1 ? "vote" : "votes"} cast
-                          </span>
-                        </div>
-                      </motion.div>
-                    )}
+                          {/* Bars area */}
+                          <div className="px-6 pt-5 pb-4">
+                            <div className="flex items-end justify-center gap-4 h-40">
+                              {currentQuestion.options.map(
+                                (opt: any, idx: number) => {
+                                  const count = answerStats[opt.id] || 0;
+                                  const pct =
+                                    totalAnswers > 0
+                                      ? Math.round((count / totalAnswers) * 100)
+                                      : 0;
+                                  const isCorrectOpt = opt.is_correct;
+                                  const barGradients = [
+                                    "from-orange-400 via-orange-500 to-orange-600",
+                                    "from-blue-400 via-blue-500 to-blue-600",
+                                    "from-yellow-400 via-amber-500 to-amber-600",
+                                    "from-green-400 via-emerald-500 to-emerald-600",
+                                    "from-violet-400 via-purple-500 to-purple-600",
+                                    "from-pink-400 via-rose-500 to-rose-600",
+                                  ];
+                                  const barGlows = [
+                                    "rgba(251,146,60,0.5)",
+                                    "rgba(96,165,250,0.5)",
+                                    "rgba(251,191,36,0.5)",
+                                    "rgba(52,211,153,0.5)",
+                                    "rgba(167,139,250,0.5)",
+                                    "rgba(244,114,182,0.5)",
+                                  ];
+                                  const gradient = isCorrectOpt
+                                    ? "from-emerald-300 via-emerald-400 to-emerald-600"
+                                    : barGradients[idx % barGradients.length];
+                                  const glow = isCorrectOpt
+                                    ? "rgba(52,211,153,0.6)"
+                                    : barGlows[idx % barGlows.length];
+                                  const barH = pct > 0 ? Math.max(8, pct) : 3;
+                                  const letter = String.fromCharCode(65 + idx);
+
+                                  return (
+                                    <div
+                                      key={opt.id}
+                                      className="flex flex-col items-center gap-2 flex-1"
+                                    >
+                                      {/* Percentage label */}
+                                      <motion.span
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.8 + idx * 0.12 }}
+                                        className={`text-lg font-black tabular-nums ${isCorrectOpt ? "text-emerald-300 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "text-white/80"}`}
+                                      >
+                                        {pct}%
+                                      </motion.span>
+
+                                      {/* Bar */}
+                                      <div
+                                        className="w-full flex justify-center"
+                                        style={{ height: "100px" }}
+                                      >
+                                        <div className="w-10 h-full flex items-end">
+                                          <motion.div
+                                            className={`w-full rounded-t-md bg-gradient-to-t ${gradient}`}
+                                            initial={{ height: 0 }}
+                                            animate={{ height: `${barH}%` }}
+                                            transition={{
+                                              duration: 0.9,
+                                              delay: 0.6 + idx * 0.12,
+                                              ease: "easeOut",
+                                            }}
+                                            style={{
+                                              minHeight: "3px",
+                                              boxShadow: `0 0 14px ${glow}, inset 0 1px 0 rgba(255,255,255,0.3)`,
+                                            }}
+                                          />
+                                        </div>
+                                      </div>
+
+                                      {/* Option letter */}
+                                      <motion.div
+                                        initial={{ opacity: 0, scale: 0.5 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        transition={{
+                                          delay: 0.5 + idx * 0.1,
+                                          type: "spring",
+                                        }}
+                                        className={`w-9 h-9 rounded-lg flex items-center justify-center font-black text-sm ${
+                                          isCorrectOpt
+                                            ? "bg-emerald-400 text-emerald-950 shadow-[0_0_14px_rgba(52,211,153,0.6)]"
+                                            : "bg-white/10 text-white/70 border border-white/10"
+                                        }`}
+                                      >
+                                        {letter}
+                                      </motion.div>
+                                    </div>
+                                  );
+                                },
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Footer */}
+                          <div
+                            className="py-2 px-4 text-center"
+                            style={{
+                              background: "rgba(255,255,255,0.02)",
+                              borderTop: "1px solid rgba(100,160,255,0.1)",
+                            }}
+                          >
+                            <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">
+                              {totalAnswers}{" "}
+                              {totalAnswers === 1 ? "vote" : "votes"} cast
+                            </span>
+                          </div>
+                        </motion.div>
+                      )}
                   </div>
 
                   {sessionState === "active" && (
@@ -1753,79 +1835,91 @@ export default function HostSessionPage() {
                 <AnimatePresence>
                   {leaderboard?.length > 0 ? (
                     leaderboard.map((lb: any, index: number) => {
-                      const rankBg = index === 0
-                        ? "bg-gradient-to-r from-emerald-500/30 to-emerald-600/20 border-emerald-400/50 shadow-[0_0_16px_rgba(16,185,129,0.3)]"
-                        : index === 1
-                          ? "bg-gradient-to-r from-sky-500/25 to-blue-500/15 border-sky-400/40 shadow-[0_0_12px_rgba(56,189,248,0.25)]"
-                          : index === 2
-                            ? "bg-gradient-to-r from-amber-500/25 to-orange-500/15 border-amber-400/40 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
-                            : "bg-white/5 border-white/10";
-                      const leftBar = index === 0
-                        ? "bg-gradient-to-b from-emerald-300 to-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"
-                        : index === 1
-                          ? "bg-gradient-to-b from-sky-300 to-sky-500 shadow-[0_0_10px_rgba(56,189,248,0.6)]"
-                          : index === 2
-                            ? "bg-gradient-to-b from-amber-400 to-amber-600 shadow-[0_0_10px_rgba(245,158,11,0.6)]"
-                            : "";
+                      const rankBg =
+                        index === 0
+                          ? "bg-gradient-to-r from-emerald-500/30 to-emerald-600/20 border-emerald-400/50 shadow-[0_0_16px_rgba(16,185,129,0.3)]"
+                          : index === 1
+                            ? "bg-gradient-to-r from-sky-500/25 to-blue-500/15 border-sky-400/40 shadow-[0_0_12px_rgba(56,189,248,0.25)]"
+                            : index === 2
+                              ? "bg-gradient-to-r from-amber-500/25 to-orange-500/15 border-amber-400/40 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
+                              : "bg-white/5 border-white/10";
+                      const leftBar =
+                        index === 0
+                          ? "bg-gradient-to-b from-emerald-300 to-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"
+                          : index === 1
+                            ? "bg-gradient-to-b from-sky-300 to-sky-500 shadow-[0_0_10px_rgba(56,189,248,0.6)]"
+                            : index === 2
+                              ? "bg-gradient-to-b from-amber-400 to-amber-600 shadow-[0_0_10px_rgba(245,158,11,0.6)]"
+                              : "";
 
                       return (
-                      <motion.div
-                        key={lb.user_id || lb.nickname || index}
-                        initial={{ opacity: 0, x: 50 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        layout
-                        transition={{
-                          type: "spring",
-                          stiffness: 300,
-                          damping: 24,
-                          delay: index * 0.05,
-                        }}
-                        className={`rounded-xl p-3 flex items-center gap-3 relative overflow-hidden border ${rankBg} hover:brightness-110 transition-all`}
-                      >
-                        {index <= 2 && (
-                          <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${leftBar}`} />
-                        )}
-
-                        <div className="font-black text-lg w-6 text-center text-white/50">
-                          {index + 1}
-                        </div>
-
-                        <div
-                          className={`avatar-bubble w-10 h-10 text-base bg-gradient-to-br ${AVATAR_GRADIENTS[index % AVATAR_GRADIENTS.length]} shadow-inner border border-white/20`}
+                        <motion.div
+                          key={lb.user_id || lb.nickname || index}
+                          initial={{ opacity: 0, x: 50 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          layout
+                          transition={{
+                            type: "spring",
+                            stiffness: 300,
+                            damping: 24,
+                            delay: index * 0.05,
+                          }}
+                          className={`rounded-xl p-3 flex items-center gap-3 relative overflow-hidden border ${rankBg} hover:brightness-110 transition-all`}
                         >
-                          {lb.avatar && lb.avatar.startsWith("http") ? (
-                            <Image src={lb.avatar} alt={lb.nickname || lb.username || "?"} fill className="object-cover rounded-full" sizes="40px" />
-                          ) : lb.avatar ? (
-                            lb.avatar
-                          ) : (
-                            (lb.nickname || lb.username)?.charAt(0).toUpperCase() || "?"
+                          {index <= 2 && (
+                            <div
+                              className={`absolute left-0 top-0 bottom-0 w-1.5 ${leftBar}`}
+                            />
                           )}
-                        </div>
 
-                        <div className="flex-1 min-w-0">
-                          <div className="font-bold text-white truncate text-base">
-                            {lb.nickname || lb.username}
+                          <div className="font-black text-lg w-6 text-center text-white/50">
+                            {index + 1}
                           </div>
-                        </div>
 
-                        <div className="flex items-center gap-2">
-                          {lb.totalResponseTime > 0 && (
-                            <span className="text-[11px] font-medium text-purple-300/60 flex items-center gap-0.5">
-                              <Clock className="w-3 h-3" />
-                              {(lb.totalResponseTime / 1000).toFixed(1)}s
-                            </span>
-                          )}
-                          <div className="font-mono font-black bg-black/30 px-2.5 py-1 rounded-lg border border-white/10 text-amber-200 min-w-[3rem] text-center text-sm shadow-inner">
-                            <motion.span
-                              key={lb.score}
-                              initial={{ scale: 1.5, color: "#facc15" }}
-                              animate={{ scale: 1, color: "#fcd34d" }}
-                            >
-                              {lb.score}
-                            </motion.span>
+                          <div
+                            className={`avatar-bubble w-10 h-10 text-base bg-gradient-to-br ${AVATAR_GRADIENTS[index % AVATAR_GRADIENTS.length]} shadow-inner border border-white/20`}
+                          >
+                            {lb.avatar && lb.avatar.startsWith("http") ? (
+                              <Image
+                                src={lb.avatar}
+                                alt={lb.nickname || lb.username || "?"}
+                                fill
+                                className="object-cover rounded-full"
+                                sizes="40px"
+                              />
+                            ) : lb.avatar ? (
+                              lb.avatar
+                            ) : (
+                              (lb.nickname || lb.username)
+                                ?.charAt(0)
+                                .toUpperCase() || "?"
+                            )}
                           </div>
-                        </div>
-                      </motion.div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-white truncate text-base">
+                              {lb.nickname || lb.username}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {lb.totalResponseTime > 0 && (
+                              <span className="text-[11px] font-medium text-purple-300/60 flex items-center gap-0.5">
+                                <Clock className="w-3 h-3" />
+                                {(lb.totalResponseTime / 1000).toFixed(1)}s
+                              </span>
+                            )}
+                            <div className="font-mono font-black bg-black/30 px-2.5 py-1 rounded-lg border border-white/10 text-amber-200 min-w-[3rem] text-center text-sm shadow-inner">
+                              <motion.span
+                                key={lb.score}
+                                initial={{ scale: 1.5, color: "#facc15" }}
+                                animate={{ scale: 1, color: "#fcd34d" }}
+                              >
+                                {lb.score}
+                              </motion.span>
+                            </div>
+                          </div>
+                        </motion.div>
                       );
                     })
                   ) : (
@@ -2065,7 +2159,13 @@ export default function HostSessionPage() {
                       }
                     >
                       {data.avatar && data.avatar.startsWith("http") ? (
-                        <Image src={data.avatar} alt={name} fill className="object-cover" sizes="120px" />
+                        <Image
+                          src={data.avatar}
+                          alt={name}
+                          fill
+                          className="object-cover"
+                          sizes="120px"
+                        />
                       ) : data.avatar ? (
                         data.avatar
                       ) : (
@@ -2193,11 +2293,19 @@ export default function HostSessionPage() {
                       className={`w-8 h-8 rounded-full bg-gradient-to-br ${["from-purple-500 to-indigo-600", "from-pink-500 to-rose-600", "from-cyan-500 to-blue-600", "from-amber-500 to-orange-600", "from-green-500 to-emerald-600"][i % 5]} flex items-center justify-center text-xs font-bold text-white relative overflow-hidden`}
                     >
                       {lb.avatar && lb.avatar.startsWith("http") ? (
-                        <Image src={lb.avatar} alt={lb.nickname || lb.username || "?"} fill className="object-cover" sizes="32px" />
+                        <Image
+                          src={lb.avatar}
+                          alt={lb.nickname || lb.username || "?"}
+                          fill
+                          className="object-cover"
+                          sizes="32px"
+                        />
                       ) : lb.avatar ? (
                         lb.avatar
                       ) : (
-                        (lb.nickname || lb.username || "?").charAt(0).toUpperCase()
+                        (lb.nickname || lb.username || "?")
+                          .charAt(0)
+                          .toUpperCase()
                       )}
                     </div>
                     <span className="text-sm font-medium text-white/70">

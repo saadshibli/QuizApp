@@ -45,10 +45,36 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const ICON_OPTIONS = [
-    "🦊", "🐱", "🐶", "🐼", "🦁", "🐸", "🐵", "🐰",
-    "🦄", "🐲", "🐯", "🦉", "🐺", "🦈", "🐙", "🦋",
-    "🤖", "👾", "🎮", "🚀", "⚡", "🔥", "💎", "🌟",
-    "🧑‍🚀", "🧙", "🦸", "🧛", "🎭", "🐻‍❄️",
+    "🦊",
+    "🐱",
+    "🐶",
+    "🐼",
+    "🦁",
+    "🐸",
+    "🐵",
+    "🐰",
+    "🦄",
+    "🐲",
+    "🐯",
+    "🦉",
+    "🐺",
+    "🦈",
+    "🐙",
+    "🦋",
+    "🤖",
+    "👾",
+    "🎮",
+    "🚀",
+    "⚡",
+    "🔥",
+    "💎",
+    "🌟",
+    "🧑‍🚀",
+    "🧙",
+    "🦸",
+    "🧛",
+    "🎭",
+    "🐻‍❄️",
   ];
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -108,8 +134,14 @@ export default function RegisterPage() {
     }
   };
 
+  const currentStep = !role
+    ? 1
+    : !name.trim() || !email.trim() || !password.trim()
+      ? 2
+      : 3;
+
   return (
-    <div className="space-bg min-h-screen overflow-y-auto overflow-x-hidden relative">
+    <div className="space-bg h-screen overflow-hidden relative">
       <SpaceBackground />
 
       <Link href="/">
@@ -123,20 +155,20 @@ export default function RegisterPage() {
         </motion.button>
       </Link>
 
-      <div className="relative z-10 min-h-screen flex flex-col lg:flex-row lg:items-center lg:gap-8 px-3 sm:px-6 lg:px-10">
+      <div className="relative z-10 h-full flex flex-col lg:flex-row lg:items-center lg:gap-6 px-3 sm:px-6 lg:px-10">
         {/* Left: Role Selection Visual */}
         <motion.div
           initial={{ opacity: 0, x: -40 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
-          className="hidden lg:flex lg:flex-1 flex-col items-center justify-center py-8"
+          className="hidden lg:flex lg:flex-1 flex-col items-center justify-center py-4"
         >
-          <div className="max-w-[520px] w-full rounded-[24px] bg-white/[0.04] border border-white/[0.1] backdrop-blur-xl p-8 min-h-[620px] flex flex-col justify-between shadow-[0_20px_50px_rgba(9,7,35,0.45)]">
+          <div className="max-w-[480px] w-full rounded-[24px] bg-white/[0.04] border border-white/[0.1] backdrop-blur-xl p-6 flex flex-col justify-between shadow-[0_20px_50px_rgba(9,7,35,0.45)]">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="text-center mb-7"
+              className="text-center mb-5"
             >
               <p className="text-[11px] uppercase tracking-[0.08em] text-cyan-200/80 font-semibold mb-3">
                 Signup Flow
@@ -150,34 +182,70 @@ export default function RegisterPage() {
               </p>
             </motion.div>
 
-            <div className="space-y-3">
-              <div className="rounded-xl border border-cyan-300/25 bg-cyan-300/10 px-4 py-3">
-                <p className="text-cyan-100 text-xs font-semibold uppercase tracking-[0.08em] mb-1">
-                  Step 1
-                </p>
-                <p className="text-white/85 text-sm">Select your role</p>
-              </div>
-              <div className="rounded-xl border border-white/12 bg-white/[0.04] px-4 py-3">
-                <p className="text-white/70 text-xs font-semibold uppercase tracking-[0.08em] mb-1">
-                  Step 2
-                </p>
-                <p className="text-white/75 text-sm">
-                  Fill your account details
-                </p>
-              </div>
-              <div className="rounded-xl border border-white/12 bg-white/[0.04] px-4 py-3">
-                <p className="text-white/70 text-xs font-semibold uppercase tracking-[0.08em] mb-1">
-                  Step 3
-                </p>
-                <p className="text-white/75 text-sm">Create your account</p>
-              </div>
+            <div className="space-y-2.5">
+              {[
+                { step: 1, label: "Select your role" },
+                { step: 2, label: "Fill your account details" },
+                { step: 3, label: "Create your account" },
+              ].map(({ step, label }) => {
+                const isActive = currentStep === step;
+                const isCompleted = currentStep > step;
+                return (
+                  <div
+                    key={step}
+                    className={`rounded-xl px-4 py-2.5 border transition-all duration-300 flex items-center gap-3 ${
+                      isActive
+                        ? "border-cyan-300/25 bg-cyan-300/10"
+                        : isCompleted
+                          ? "border-emerald-400/25 bg-emerald-400/10"
+                          : "border-white/12 bg-white/[0.04]"
+                    }`}
+                  >
+                    <div
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
+                        isActive
+                          ? "bg-cyan-400/30 text-cyan-100"
+                          : isCompleted
+                            ? "bg-emerald-400/30 text-emerald-200"
+                            : "bg-white/10 text-white/50"
+                      }`}
+                    >
+                      {isCompleted ? "✓" : step}
+                    </div>
+                    <div>
+                      <p
+                        className={`text-[10px] font-semibold uppercase tracking-[0.08em] ${
+                          isActive
+                            ? "text-cyan-100"
+                            : isCompleted
+                              ? "text-emerald-200"
+                              : "text-white/70"
+                        }`}
+                      >
+                        Step {step}
+                      </p>
+                      <p
+                        className={`text-sm ${
+                          isActive
+                            ? "text-white/85"
+                            : isCompleted
+                              ? "text-white/75"
+                              : "text-white/60"
+                        }`}
+                      >
+                        {label}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6 }}
-              className="mt-6 text-center"
+              className="mt-4 text-center"
             >
               <div className="flex items-center justify-center gap-1.5 text-[#9c95c1] text-xs">
                 <ShieldCheck className="w-3.5 h-3.5" />
@@ -188,7 +256,7 @@ export default function RegisterPage() {
         </motion.div>
 
         {/* Right: Registration Form */}
-        <div className="flex-1 flex items-center justify-center py-16 sm:py-8">
+        <div className="flex-1 flex items-center justify-center py-4">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
@@ -196,13 +264,10 @@ export default function RegisterPage() {
             className="w-full max-w-[520px]"
           >
             <div className="rounded-[30px] p-[1px] bg-gradient-to-br from-[#8b5cf6]/58 via-[#3b82f6]/30 to-[#06b6d4]/52 shadow-[0_30px_80px_rgba(8,7,33,0.62)]">
-              <div className="rounded-[29px] bg-[#140f2f]/84 backdrop-blur-[18px] p-4 sm:p-7 md:p-8 min-h-0 sm:min-h-[620px] flex flex-col shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                <div className="h-[3px] w-28 rounded-full bg-gradient-to-r from-[#8b5cf6] via-[#6366f1] to-[#06b6d4] mb-5" />
+              <div className="rounded-[29px] bg-[#140f2f]/84 backdrop-blur-[18px] p-4 sm:p-5 flex flex-col shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                <div className="h-[3px] w-28 rounded-full bg-gradient-to-r from-[#8b5cf6] via-[#6366f1] to-[#06b6d4] mb-4" />
                 {/* Header */}
-                <div className="mb-5">
-                  <p className="text-[11px] uppercase tracking-[0.08em] text-cyan-200/80 font-semibold mb-3">
-                    Step 2: Fill Details
-                  </p>
+                <div className="mb-4">
                   <div className="flex items-center gap-3 mb-1">
                     <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br from-blue-500 to-cyan-500 shadow-[0_0_24px_rgba(59,130,246,0.45)]">
                       <UserPlus className="w-6 h-6 text-white" />
@@ -218,7 +283,7 @@ export default function RegisterPage() {
                   </div>
                 </div>
 
-                <form onSubmit={handleRegister} className="space-y-4 flex-1">
+                <form onSubmit={handleRegister} className="space-y-3 flex-1">
                   {error && (
                     <motion.div
                       initial={{ opacity: 0, y: -8 }}
@@ -232,7 +297,7 @@ export default function RegisterPage() {
                   <div className="space-y-2.5">
                     <div className="flex items-center justify-between">
                       <label className="block text-white/90 font-semibold text-sm">
-                        Step 1: Select Role
+                        Select Role
                       </label>
                       {role && (
                         <span className="text-xs font-semibold text-cyan-300">
@@ -293,14 +358,14 @@ export default function RegisterPage() {
                   </div>
 
                   <div
-                    className={`space-y-4 transition-all duration-200 ${role ? "opacity-100" : "opacity-55"}`}
+                    className={`space-y-3 transition-all duration-200 ${role ? "opacity-100" : "opacity-55"}`}
                   >
                     <fieldset
                       disabled={!role || isLoading}
-                      className="space-y-4"
+                      className="space-y-3"
                     >
-                      <div className="grid sm:grid-cols-2 gap-4">
-                        <div className="space-y-2.5">
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
                           <label className="block text-white/85 font-semibold text-sm">
                             Full Name
                           </label>
@@ -310,13 +375,13 @@ export default function RegisterPage() {
                               type="text"
                               value={name}
                               onChange={(e) => setName(e.target.value)}
-                              className="w-full h-11 sm:h-[52px] rounded-xl border border-white/12 bg-white/[0.045] pl-12 pr-4 text-white placeholder:text-white/35 outline-none transition-all duration-200 hover:border-white/20 hover:bg-white/[0.06] focus:border-cyan-300/70 focus:bg-white/[0.07] focus:shadow-[0_0_0_4px_rgba(34,211,238,0.14),0_10px_24px_rgba(6,182,212,0.12)] disabled:cursor-not-allowed"
+                              className="w-full h-10 sm:h-11 rounded-xl border border-white/12 bg-white/[0.045] pl-12 pr-4 text-white text-sm placeholder:text-white/35 outline-none transition-all duration-200 hover:border-white/20 hover:bg-white/[0.06] focus:border-cyan-300/70 focus:bg-white/[0.07] focus:shadow-[0_0_0_4px_rgba(34,211,238,0.14),0_10px_24px_rgba(6,182,212,0.12)] disabled:cursor-not-allowed"
                               placeholder="John Doe"
                             />
                           </div>
                         </div>
 
-                        <div className="space-y-2.5">
+                        <div className="space-y-1.5">
                           <label className="block text-white/85 font-semibold text-sm">
                             Email
                           </label>
@@ -326,14 +391,14 @@ export default function RegisterPage() {
                               type="email"
                               value={email}
                               onChange={(e) => setEmail(e.target.value)}
-                              className="w-full h-11 sm:h-[52px] rounded-xl border border-white/12 bg-white/[0.045] pl-12 pr-4 text-white placeholder:text-white/35 outline-none transition-all duration-200 hover:border-white/20 hover:bg-white/[0.06] focus:border-cyan-300/70 focus:bg-white/[0.07] focus:shadow-[0_0_0_4px_rgba(34,211,238,0.14),0_10px_24px_rgba(6,182,212,0.12)] disabled:cursor-not-allowed"
+                              className="w-full h-10 sm:h-11 rounded-xl border border-white/12 bg-white/[0.045] pl-12 pr-4 text-white text-sm placeholder:text-white/35 outline-none transition-all duration-200 hover:border-white/20 hover:bg-white/[0.06] focus:border-cyan-300/70 focus:bg-white/[0.07] focus:shadow-[0_0_0_4px_rgba(34,211,238,0.14),0_10px_24px_rgba(6,182,212,0.12)] disabled:cursor-not-allowed"
                               placeholder="you@example.com"
                             />
                           </div>
                         </div>
                       </div>
 
-                      <div className="space-y-2.5">
+                      <div className="space-y-1.5">
                         <label className="block text-white/85 font-semibold text-sm">
                           Profile Picture
                         </label>
@@ -366,7 +431,7 @@ export default function RegisterPage() {
 
                         {/* Icon picker */}
                         {avatarMode === "icon" && (
-                          <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                          <div className="flex flex-wrap gap-1 sm:gap-1.5">
                             {ICON_OPTIONS.map((icon) => (
                               <button
                                 key={icon}
@@ -376,7 +441,7 @@ export default function RegisterPage() {
                                   setAvatarFile(null);
                                   setAvatarPreview(null);
                                 }}
-                                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center text-lg sm:text-xl transition-all duration-200 ${
+                                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center text-base sm:text-lg transition-all duration-200 ${
                                   selectedIcon === icon
                                     ? "bg-purple-500/30 border-2 border-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.4)] scale-110"
                                     : "bg-white/[0.06] border border-white/10 hover:bg-white/[0.12] hover:border-white/20"
@@ -408,6 +473,7 @@ export default function RegisterPage() {
                               </div>
                               <button
                                 type="button"
+                                aria-label="Upload avatar image"
                                 onClick={() => fileInputRef.current?.click()}
                                 className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
                               >
@@ -421,7 +487,9 @@ export default function RegisterPage() {
                                 className="text-sm font-semibold text-cyan-300 hover:text-cyan-200 transition-colors flex items-center gap-1.5"
                               >
                                 <ImageIcon className="w-4 h-4" />
-                                {avatarPreview ? "Change image" : "Choose from gallery"}
+                                {avatarPreview
+                                  ? "Change image"
+                                  : "Choose from gallery"}
                               </button>
                               <p className="text-xs text-white/40 mt-1">
                                 JPG, PNG or GIF · Max 5 MB
@@ -436,6 +504,7 @@ export default function RegisterPage() {
                               ref={fileInputRef}
                               type="file"
                               accept="image/*"
+                              aria-label="Upload profile picture"
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
                                 if (!file) return;
@@ -454,7 +523,7 @@ export default function RegisterPage() {
                         )}
                       </div>
 
-                      <div className="space-y-2.5">
+                      <div className="space-y-1.5">
                         <label className="block text-white/85 font-semibold text-sm">
                           Password
                         </label>
@@ -464,7 +533,7 @@ export default function RegisterPage() {
                             type={showPassword ? "text" : "password"}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full h-11 sm:h-[52px] rounded-xl border border-white/12 bg-white/[0.045] pl-12 pr-12 text-white placeholder:text-white/35 outline-none transition-all duration-200 hover:border-white/20 hover:bg-white/[0.06] focus:border-cyan-300/70 focus:bg-white/[0.07] focus:shadow-[0_0_0_4px_rgba(34,211,238,0.14),0_10px_24px_rgba(6,182,212,0.12)] disabled:cursor-not-allowed"
+                            className="w-full h-10 sm:h-11 rounded-xl border border-white/12 bg-white/[0.045] pl-12 pr-12 text-white text-sm placeholder:text-white/35 outline-none transition-all duration-200 hover:border-white/20 hover:bg-white/[0.06] focus:border-cyan-300/70 focus:bg-white/[0.07] focus:shadow-[0_0_0_4px_rgba(34,211,238,0.14),0_10px_24px_rgba(6,182,212,0.12)] disabled:cursor-not-allowed"
                             placeholder="Create a password"
                           />
                           <button
@@ -487,16 +556,13 @@ export default function RegisterPage() {
                     </fieldset>
                   </div>
 
-                  <div className="pt-0.5">
-                    <label className="block text-white/90 font-semibold text-sm mb-2">
-                      Step 3: Submit
-                    </label>
+                  <div>
                     <motion.button
                       whileHover={{ scale: role ? 1.016 : 1, y: role ? -1 : 0 }}
                       whileTap={{ scale: role ? 0.985 : 1 }}
                       type="submit"
                       disabled={isLoading || !role}
-                      className={`w-full h-11 sm:h-[52px] rounded-xl text-sm sm:text-base font-bold mt-1 btn-cartoon inline-flex items-center justify-center gap-2 disabled:opacity-55 disabled:cursor-not-allowed ${
+                      className={`w-full h-10 sm:h-11 rounded-xl text-sm font-bold btn-cartoon inline-flex items-center justify-center gap-2 disabled:opacity-55 disabled:cursor-not-allowed ${
                         role === "teacher"
                           ? "btn-cartoon-pink"
                           : role === "student"
@@ -520,7 +586,7 @@ export default function RegisterPage() {
                 </form>
 
                 {/* Footer */}
-                <div className="mt-5 text-center">
+                <div className="mt-3 text-center">
                   <p className="text-sm text-white/50">
                     Already have an account?{" "}
                     <Link

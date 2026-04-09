@@ -67,9 +67,20 @@ export const initializeSocket = (token: string): Socket => {
     isAuthenticated = false;
   });
 
-  socket.on("error", () => {});
+  socket.on("ServerShuttingDown", () => {
+    console.warn("Server is shutting down, will attempt to reconnect...");
+  });
 
-  socket.on("connect_error", () => {});
+  socket.on("connect_error", (err) => {
+    if (
+      err.message === "Authentication required" ||
+      err.message === "Invalid token"
+    ) {
+      isAuthenticated = false;
+    }
+  });
+
+  socket.on("error", () => {});
 
   socket.on("disconnect", () => {
     isAuthenticated = false;

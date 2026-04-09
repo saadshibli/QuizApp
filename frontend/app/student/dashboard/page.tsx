@@ -266,6 +266,7 @@ export default function StudentDashboard() {
           <p className="text-white/30 text-xs mt-5">
             Want to track your scores?{" "}
             <button
+              type="button"
               onClick={() => {
                 logout();
                 router.replace("/register");
@@ -298,7 +299,13 @@ export default function StudentDashboard() {
               className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/25 border border-white/15 overflow-hidden cursor-pointer flex-shrink-0"
             >
               {user?.avatar && user.avatar.startsWith("http") ? (
-                <Image src={user.avatar} alt="" width={40} height={40} className="w-full h-full object-cover" />
+                <Image
+                  src={user.avatar}
+                  alt=""
+                  width={40}
+                  height={40}
+                  className="w-full h-full object-cover"
+                />
               ) : user?.avatar ? (
                 <span className="text-xl leading-none">{user.avatar}</span>
               ) : (

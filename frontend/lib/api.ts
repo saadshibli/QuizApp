@@ -99,7 +99,9 @@ apiClient.interceptors.response.use(
       // Only auto-logout if the store has hydrated and we actually had a token
       if (store._hasHydrated && store.token) {
         store.logout();
-        window.location.href = "/login";
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
       }
     }
     return Promise.reject(error);

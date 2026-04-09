@@ -88,8 +88,8 @@ const schemas = {
 
   addQuestion: Joi.object({
     question_text: Joi.string().trim().min(1).max(5000).required(),
-    time_limit: Joi.number().min(1).max(300).default(30),
-    points: Joi.number().min(1).max(2000).default(100),
+    time_limit: Joi.number().integer().min(1).max(300).default(30),
+    points: Joi.number().integer().min(1).max(2000).default(100),
   }),
 
   addOption: Joi.object({
@@ -98,7 +98,13 @@ const schemas = {
   }),
 
   joinSession: Joi.object({
-    session_code: Joi.string().trim().length(6).required(),
+    session_code: Joi.string()
+      .trim()
+      .pattern(/^\d{6}$/)
+      .required()
+      .messages({
+        "string.pattern.base": "Session code must be exactly 6 digits",
+      }),
     nickname: Joi.string().trim().min(2).max(50).required(),
   }),
 

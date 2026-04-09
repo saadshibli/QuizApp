@@ -6,18 +6,7 @@
 const SessionService = require("../services/sessionService");
 const SessionRepository = require("../repositories/sessionRepository");
 const QuizRepository = require("../repositories/quizRepository");
-
-/**
- * Sanitize user input by stripping all HTML/script content
- */
-function sanitizeString(str) {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#x27;");
-}
+const { sanitizeString } = require("../utils/sanitize");
 
 class SessionController {
   /**

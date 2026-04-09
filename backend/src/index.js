@@ -10,6 +10,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 const helmet = require("helmet");
 const cors = require("cors");
+const compression = require("compression");
 
 // Import routes
 const authRoutes = require("./routes/authRoutes");
@@ -44,10 +45,26 @@ const io = new Server(server, {
   },
 });
 
+// ==================== ENV VALIDATION ====================
+if (process.env.NODE_ENV === "production") {
+  const required = ["DATABASE_HOST", "JWT_SECRET", "FRONTEND_URL"];
+  const missing = required.filter((k) => !process.env[k]);
+  if (missing.length) {
+    console.error(`Missing required env vars: ${missing.join(", ")}`);
+    process.exit(1);
+  }
+}
+
 // ==================== MIDDLEWARE ====================
 
 // Security headers
-app.use(helmet());
+app.use(
+  helmet({
+    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+    contentSecurityPolicy: false, // CSP managed by frontend framework
+    crossOriginEmbedderPolicy: false, // Allow embedded resources (images, etc.)
+  }),
+);
 
 // CORS
 app.use(
@@ -57,9 +74,18 @@ app.use(
   }),
 );
 
+// Compression
+app.use(compression());
+
 // Body parsing
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ limit: "1mb", extended: true }));
+
+// Request timeout (30s)
+app.use((req, res, next) => {
+  req.setTimeout(30000);
+  next();
+});
 
 // Rate limiting
 app.use("/api/", apiLimiter);
@@ -74,9 +100,19 @@ if (process.env.NODE_ENV !== "production") {
 
 // ==================== ROUTES ====================
 
-// Health check endpoint
+// Health check endpoints
 app.get("/health", (req, res) => {
   res.json({ status: "ok", message: "Server is running" });
+});
+
+app.get("/health/ready", async (req, res) => {
+  try {
+    const { pool } = require("./config/database");
+    await pool.query("SELECT 1");
+    res.json({ status: "ready", db: "ok" });
+  } catch (e) {
+    res.status(503).json({ status: "not ready", db: "down" });
+  }
 });
 
 // API routes
@@ -102,22 +138,20 @@ app.use(errorHandler);
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
   if (!token || typeof token !== "string") {
-    // Allow connection but mark as unauthenticated — authenticate event still works as fallback
-    socket.userId = null;
-    socket.userRole = null;
-    return next();
+    return next(new Error("Authentication required"));
   }
   try {
     const decoded = verifyToken(token);
-    if (decoded) {
-      socket.userId = decoded.id;
-      socket.userRole = decoded.role;
-      socket.userName = decoded.name || decoded.nickname;
+    if (!decoded) {
+      return next(new Error("Invalid token"));
     }
+    socket.userId = decoded.id;
+    socket.userRole = decoded.role;
+    socket.userName = decoded.name || decoded.nickname;
+    next();
   } catch (err) {
-    // Allow connection, authentication can happen via event
+    next(new Error("Authentication failed"));
   }
-  next();
 });
 
 // Initialize Socket.IO event handlers
@@ -155,6 +189,15 @@ async function startServer() {
 // Handle graceful shutdown
 function shutdown() {
   console.log("Shutting down gracefully...");
+
+  // Notify all connected socket clients
+  io.emit("ServerShuttingDown", { message: "Server is restarting" });
+
+  // Close socket.io first
+  io.close(() => {
+    console.log("Socket.IO closed");
+  });
+
   server.close(() => {
     console.log("Server closed");
     process.exit(0);
@@ -166,7 +209,7 @@ function shutdown() {
       "Could not close connections in time, forcefully shutting down",
     );
     process.exit(1);
-  }, 5000);
+  }, 10000);
 }
 
 process.on("SIGTERM", shutdown);

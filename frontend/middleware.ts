@@ -11,19 +11,30 @@ export function middleware(req: NextRequest) {
   }
 
   try {
-    // 2. Decode JWT payload basic way without external libraries
+    // 2. Decode JWT payload (middleware is client-side gating only — server verifies signature)
     const payloadParts = token.split(".");
     if (payloadParts.length !== 3) {
       throw new Error("Invalid token");
     }
 
-    // Use atob since this is Edge runtime Next.js middleware, Buffer is not reliable here
     const payloadBase64 = payloadParts[1].replace(/-/g, "+").replace(/_/g, "/");
     const decodedPayload = JSON.parse(atob(payloadBase64));
 
-    const { role } = decodedPayload;
+    const { role, exp } = decodedPayload;
 
-    // 3. Enforce Role Protection
+    // 3. Check token expiration
+    if (exp && Date.now() >= exp * 1000) {
+      const response = NextResponse.redirect(new URL("/login", req.url));
+      response.cookies.set("token", "", { maxAge: 0, path: "/" });
+      return response;
+    }
+
+    // 4. Validate role is a known value
+    if (!["admin", "teacher", "student"].includes(role)) {
+      throw new Error("Invalid role");
+    }
+
+    // 5. Enforce Role Protection
     if (pathname.startsWith("/admin") && role !== "admin") {
       return NextResponse.redirect(new URL("/login", req.url));
     }
@@ -61,8 +72,10 @@ export function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL("/login", req.url));
     }
   } catch {
-    // If token manipulation fails or malformed
-    return NextResponse.redirect(new URL("/login", req.url));
+    // If token manipulation fails or malformed — clear cookie and redirect
+    const response = NextResponse.redirect(new URL("/login", req.url));
+    response.cookies.set("token", "", { maxAge: 0, path: "/" });
+    return response;
   }
 
   return NextResponse.next();

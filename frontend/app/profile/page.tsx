@@ -21,10 +21,36 @@ import {
 import SpaceBackground from "@/components/SpaceBackground";
 
 const ICON_OPTIONS = [
-  "🦊", "🐱", "🐶", "🐼", "🦁", "🐸", "🐵", "🐰",
-  "🦄", "🐲", "🐯", "🦉", "🐺", "🦈", "🐙", "🦋",
-  "🤖", "👾", "🎮", "🚀", "⚡", "🔥", "💎", "🌟",
-  "🧑‍🚀", "🧙", "🦸", "🧛", "🎭", "🐻‍❄️",
+  "🦊",
+  "🐱",
+  "🐶",
+  "🐼",
+  "🦁",
+  "🐸",
+  "🐵",
+  "🐰",
+  "🦄",
+  "🐲",
+  "🐯",
+  "🦉",
+  "🐺",
+  "🦈",
+  "🐙",
+  "🦋",
+  "🤖",
+  "👾",
+  "🎮",
+  "🚀",
+  "⚡",
+  "🔥",
+  "💎",
+  "🌟",
+  "🧑‍🚀",
+  "🧙",
+  "🦸",
+  "🧛",
+  "🎭",
+  "🐻‍❄️",
 ];
 
 export default function ProfilePage() {
@@ -87,7 +113,8 @@ export default function ProfilePage() {
   };
 
   const displayAvatar = previewUrl || (isUrlAvatar ? currentAvatar : null);
-  const displayIcon = selectedIcon || (!isUrlAvatar && !previewUrl ? currentAvatar : null);
+  const displayIcon =
+    selectedIcon || (!isUrlAvatar && !previewUrl ? currentAvatar : null);
 
   return (
     <div className="space-bg min-h-screen relative overflow-hidden flex flex-col">
@@ -257,6 +284,7 @@ export default function ProfilePage() {
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
+                  aria-label="Upload profile picture"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;

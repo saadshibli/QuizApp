@@ -7,6 +7,7 @@ const SessionService = require("../services/sessionService");
 const SessionRepository = require("../repositories/sessionRepository");
 const QuizRepository = require("../repositories/quizRepository");
 const { verifyToken } = require("../config/jwt");
+const { sanitizeString } = require("../utils/sanitize");
 
 // Map to track user connections and active sessions
 const connectedUsers = new Map();
@@ -18,18 +19,6 @@ const GRACE_MS = 3000;
 const AUTO_END_BUFFER_MS = 5000;
 // Transition delay (ms) before first question timer starts (startup countdown)
 const FIRST_QUESTION_DELAY_MS = 5000;
-
-/**
- * Sanitize user input by HTML-encoding special chars
- */
-function sanitizeString(str) {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#x27;");
-}
 
 /**
  * Verify the socket user is the teacher who owns the given session.
@@ -162,7 +151,7 @@ function initializeSocketHandlers(io) {
         if (
           !sessionCode ||
           typeof sessionCode !== "string" ||
-          sessionCode.length !== 6
+          !/^\d{6}$/.test(sessionCode)
         ) {
           socket.emit("error", { error: "Invalid session code" });
           return;
@@ -209,10 +198,12 @@ function initializeSocketHandlers(io) {
             sessionId: session.id,
             sessionCode: session.session_code,
             participants: [],
+            lastActivity: Date.now(),
           });
         }
 
         const sessionData = activeSessions.get(session.id);
+        sessionData.lastActivity = Date.now();
         // Prevent duplicate tracking for the same user
         const alreadyTracked = sessionData.participants.some(
           (p) => p.userId === socket.userId,
@@ -280,6 +271,7 @@ function initializeSocketHandlers(io) {
 
         // Server-side time enforcement: reject answers after deadline
         const sessionData = activeSessions.get(socket.sessionId);
+        if (sessionData) sessionData.lastActivity = Date.now();
         if (sessionData?.currentQuestion) {
           const q = sessionData.currentQuestion;
           if (q.id === questionId) {
@@ -399,7 +391,9 @@ function initializeSocketHandlers(io) {
         sessionData.hasStartedFirstQuestion = true;
 
         // Fetch quiz to get totalQuestions and advance settings
-        const session = await SessionRepository.getSessionById(parseInt(sessionId));
+        const session = await SessionRepository.getSessionById(
+          parseInt(sessionId),
+        );
         let totalQuestions = 0;
         let currentQuestionIndex = 0;
         let advanceMode = "auto";
@@ -408,7 +402,9 @@ function initializeSocketHandlers(io) {
           const quiz = await QuizRepository.getQuizById(session.quiz_id);
           if (quiz) {
             totalQuestions = quiz.questions ? quiz.questions.length : 0;
-            currentQuestionIndex = quiz.questions ? quiz.questions.findIndex(q => q.id === question.id) : 0;
+            currentQuestionIndex = quiz.questions
+              ? quiz.questions.findIndex((q) => q.id === question.id)
+              : 0;
             if (currentQuestionIndex < 0) currentQuestionIndex = 0;
             advanceMode = quiz.advance_mode || "auto";
             advanceSeconds = quiz.advance_seconds || 5;
@@ -442,15 +438,21 @@ function initializeSocketHandlers(io) {
           let aeAdvanceMode = "auto";
           let aeAdvanceSeconds = 5;
           try {
-            const aeSession = await SessionRepository.getSessionById(parseInt(sessionId));
+            const aeSession = await SessionRepository.getSessionById(
+              parseInt(sessionId),
+            );
             if (aeSession) {
-              const aeQuiz = await QuizRepository.getQuizById(aeSession.quiz_id);
+              const aeQuiz = await QuizRepository.getQuizById(
+                aeSession.quiz_id,
+              );
               if (aeQuiz) {
                 aeAdvanceMode = aeQuiz.advance_mode || "auto";
                 aeAdvanceSeconds = aeQuiz.advance_seconds || 5;
               }
             }
-          } catch (e) { /* use defaults */ }
+          } catch (e) {
+            /* use defaults */
+          }
           io.to(`session:${sessionId}`).emit("QuestionEnded", {
             correctOptionId: null,
             autoEnded: true,
@@ -519,7 +521,9 @@ function initializeSocketHandlers(io) {
         // Fetch advance settings from quiz
         let advanceMode = "auto";
         let advanceSeconds = 5;
-        const session = await SessionRepository.getSessionById(parseInt(sessionId));
+        const session = await SessionRepository.getSessionById(
+          parseInt(sessionId),
+        );
         if (session) {
           const quiz = await QuizRepository.getQuizById(session.quiz_id);
           if (quiz) {
@@ -588,6 +592,12 @@ function initializeSocketHandlers(io) {
         const sessionData = activeSessions.get(socket.sessionId);
 
         if (sessionData) {
+          // Clean up auto-end timer if this was the teacher (host)
+          if (socket.userRole === "teacher" && sessionData.autoEndTimer) {
+            clearTimeout(sessionData.autoEndTimer);
+            sessionData.autoEndTimer = null;
+          }
+
           // Remove user from session participants
           sessionData.participants = sessionData.participants.filter(
             (p) => p.socketId !== socket.id,
@@ -619,6 +629,22 @@ function initializeSocketHandlers(io) {
       socket.emit("error", { error: "An error occurred" });
     });
   });
+
+  // Clean up stale sessions every 5 minutes (sessions inactive for 2+ hours)
+  setInterval(
+    () => {
+      const now = Date.now();
+      for (const [sessionId, data] of activeSessions) {
+        const lastActivity = data.lastActivity || 0;
+        if (now - lastActivity > 2 * 60 * 60 * 1000) {
+          if (data.autoEndTimer) clearTimeout(data.autoEndTimer);
+          activeSessions.delete(sessionId);
+          console.log(`[Socket] Cleaned up stale session ${sessionId}`);
+        }
+      }
+    },
+    5 * 60 * 1000,
+  );
 }
 
 module.exports = {
