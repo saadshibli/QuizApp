@@ -360,6 +360,8 @@ function initializeSocketHandlers(io) {
         // Update leaderboard for all participants
         io.to(`session:${socket.sessionId}`).emit("LeaderboardUpdate", {
           leaderboard: leaderboard.map((entry) => ({
+            participant_id: entry.participant_id,
+            user_id: entry.user_id || null,
             rank: entry.rank,
             nickname: entry.nickname,
             score: entry.total_score,
@@ -594,7 +596,7 @@ function initializeSocketHandlers(io) {
      */
     socket.on("broadcastQuizEnded", async (data) => {
       try {
-        const { sessionId, finalLeaderboard } = data;
+        const { sessionId } = data;
 
         const isOwner = await verifySessionOwner(socket, sessionId);
         if (!isOwner) {
@@ -603,6 +605,18 @@ function initializeSocketHandlers(io) {
           });
           return;
         }
+
+        // Fetch fresh leaderboard from DB instead of trusting client data
+        const leaderboard = await SessionRepository.getLeaderboard(sessionId);
+        const finalLeaderboard = leaderboard.map((entry) => ({
+          participant_id: entry.participant_id,
+          user_id: entry.user_id || null,
+          rank: entry.rank,
+          nickname: entry.nickname,
+          score: entry.total_score,
+          totalResponseTime: Number(entry.total_response_time) || 0,
+          avatar: entry.avatar || null,
+        }));
 
         io.to(`session:${sessionId}`).emit("QuizEnded", {
           finalLeaderboard,

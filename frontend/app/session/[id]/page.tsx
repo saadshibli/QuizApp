@@ -63,14 +63,29 @@ export default function HostSessionPage() {
   const [advanceMode, setAdvanceMode] = useState<"auto" | "manual">("auto");
   const [advanceSeconds, setAdvanceSeconds] = useState(5);
 
-  // Normalize leaderboard entries to ensure totalResponseTime is always a number
-  const normalizeLeaderboard = (entries: any[]) =>
-    entries.map((e: any) => ({
-      ...e,
-      totalResponseTime:
-        Number(e.totalResponseTime ?? e.total_response_time) || 0,
-      score: e.score ?? e.total_score ?? 0,
-    }));
+  // Normalize & deduplicate leaderboard entries
+  const normalizeLeaderboard = (entries: any[]) => {
+    const seen = new Set<string>();
+    return entries
+      .map((e: any) => ({
+        ...e,
+        participant_id: e.participant_id ?? e.participantId,
+        user_id: e.user_id ?? e.userId ?? null,
+        totalResponseTime:
+          Number(e.totalResponseTime ?? e.total_response_time) || 0,
+        score: e.score ?? e.total_score ?? 0,
+      }))
+      .filter((e: any) => {
+        const key = String(e.participant_id || e.user_id || e.nickname);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((a: any, b: any) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.totalResponseTime - b.totalResponseTime;
+      });
+  };
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [answerStats, setAnswerStats] = useState<Record<number, number>>({});
   const [totalAnswers, setTotalAnswers] = useState(0);
@@ -1378,13 +1393,13 @@ export default function HostSessionPage() {
             )}
           </AnimatePresence>
 
-          <main className="flex-1 flex flex-col lg:flex-row gap-3 p-3 lg:p-4 overflow-hidden max-w-[1600px] mx-auto w-full min-h-0">
+          <main className="flex-1 flex flex-col lg:flex-row gap-3 p-3 lg:p-4 overflow-hidden max-w-[1920px] mx-auto w-full min-h-0">
             {/* Game Board */}
-            <div className="flex-[1.5] flex flex-col relative z-10 min-h-0 overflow-hidden">
+            <div className="flex-[2.5] flex flex-col relative z-10 min-h-0 overflow-hidden">
               {currentQuestion ? (
-                <div className="flex flex-col gap-2 h-full justify-center bg-black/40 backdrop-blur-xl rounded-[2rem] border-2 border-white/10 p-4 lg:p-5 shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-y-auto min-h-0">
+                <div className="flex flex-col gap-3 h-full bg-black/40 backdrop-blur-xl rounded-[2rem] border-2 border-white/10 p-5 lg:p-7 shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-y-auto min-h-0">
                   {/* Header / Info with Circular Timer */}
-                  <div className="flex justify-between items-center mb-1">
+                  <div className="flex justify-between items-center shrink-0">
                     <span className="bg-purple-500/20 text-purple-300 px-4 py-1.5 rounded-full font-black tracking-widest uppercase text-sm border border-purple-500/30 shadow-inner">
                       Q.{currentQuestionIndex + 1}
                     </span>
@@ -1500,10 +1515,10 @@ export default function HostSessionPage() {
                     </div>
                   </div>
 
-                  {/* Timer Progress Bar — fills left to right as time passes */}
+                  {/* Timer Progress Bar */}
                   {(sessionState === "active" ||
                     sessionState === "startCountdown") && (
-                    <div className="relative h-2 w-full bg-black/40 rounded-full overflow-hidden border border-white/10 mb-1">
+                    <div className="relative h-2.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/10 shrink-0">
                       <motion.div
                         className={`absolute top-0 left-0 h-full rounded-full ${sessionState === "startCountdown" ? "bg-gradient-to-r from-cyan-500 to-blue-400 shadow-[0_0_15px_rgba(34,211,238,0.6)]" : timeRemaining <= 5 ? "bg-gradient-to-r from-red-600 to-red-400 shadow-[0_0_15px_rgba(239,68,68,0.7)]" : "bg-gradient-to-r from-cyan-500 to-purple-500 shadow-[0_0_15px_rgba(34,211,238,0.5)]"}`}
                         animate={{
@@ -1515,14 +1530,17 @@ export default function HostSessionPage() {
                   )}
 
                   {/* Question Title */}
-                  <div className="flex items-center justify-center py-1 lg:py-2">
-                    <h3 className="text-2xl lg:text-4xl text-white font-black font-display leading-snug text-center drop-shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
+                  <div className="flex-1 min-h-0 flex items-center justify-center py-2 lg:py-3 overflow-hidden">
+                    <h3
+                      className="text-white font-black font-display leading-tight text-center drop-shadow-[0_4px_24px_rgba(0,0,0,0.7)] tracking-tight overflow-hidden"
+                      style={{ fontSize: "clamp(1.25rem, 2.8vw, 3rem)", display: "-webkit-box", WebkitLineClamp: 5, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+                    >
                       {currentQuestion.text}
                     </h3>
                   </div>
 
                   {/* Options Grid */}
-                  <div className={`grid gap-2.5 lg:gap-3 ${sessionState === "leaderboard" ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2"}`}>
+                  <div className="grid gap-2.5 lg:gap-3 grid-cols-2 shrink-0">
                     <AnimatePresence>
                       {currentQuestion.options?.map((opt: any, idx: number) => {
                         const colors = [
@@ -1610,22 +1628,22 @@ export default function HostSessionPage() {
                             style={
                               !isReveal ? { boxShadow: c.glow } : undefined
                             }
-                            className={`relative rounded-xl px-4 py-3 lg:py-3.5 flex items-center overflow-hidden transition-all duration-400 backdrop-blur-sm ${
+                            className={`relative rounded-2xl px-5 py-4 lg:py-5 flex items-center overflow-hidden transition-all duration-400 backdrop-blur-sm ${
                               isCorrect
-                                ? "bg-emerald-500/30 border-2 border-emerald-400 shadow-[0_0_24px_rgba(16,185,129,0.5)] scale-[1.02] z-20"
+                                ? "bg-emerald-500/30 border-2 border-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.6)] scale-[1.02] z-20"
                                 : isWrong
-                                  ? "bg-gray-800/30 border-2 border-gray-600/40 opacity-60"
+                                  ? "bg-gray-800/30 border-2 border-gray-600/40 opacity-50"
                                   : `bg-gradient-to-r ${c.gradient} border-2 ${c.border} ${c.hoverGlow} hover:shadow-lg`
                             }`}
                           >
-                            <div className="relative z-10 flex items-center w-full gap-3">
-                              <div className="flex items-center gap-3">
-                                <div
-                                  className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm shrink-0 shadow-md ${isCorrect ? "bg-emerald-400 text-emerald-950" : isWrong ? "bg-gray-600 text-gray-300" : c.chip}`}
-                                >
-                                  {String.fromCharCode(65 + idx)}
-                                </div>
-                                <span className="text-base lg:text-lg font-bold text-white drop-shadow-sm">
+<div className="flex items-center gap-4">
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center font-black text-base lg:text-xl shrink-0 shadow-md ${isCorrect ? "bg-emerald-400 text-emerald-950" : isWrong ? "bg-gray-600 text-gray-300" : c.chip}`}
+                                  >
+                                    {String.fromCharCode(65 + idx)}
+                                  </div>
+                                  <span className="text-lg lg:text-xl xl:text-2xl font-bold text-white drop-shadow-sm leading-tight">
                                   {opt.text}
                                 </span>
                               </div>
@@ -1692,9 +1710,8 @@ export default function HostSessionPage() {
               )}
             </div>
 
-            {/* ─── Center Chart Panel ─── */}
-            {(sessionState === "active" || sessionState === "leaderboard") && currentQuestion?.options && (() => {
-              const isRevealChart = sessionState === "leaderboard";
+            {/* ─── Center Chart Panel (only after question ends) ─── */}
+            {sessionState === "leaderboard" && currentQuestion?.options && (() => {
               const neonColors = [
                 { gradient: "from-emerald-400 to-emerald-600", glow: "rgba(16,185,129,0.6)", glowStrong: "rgba(16,185,129,0.35)" },
                 { gradient: "from-pink-400 to-pink-600", glow: "rgba(236,72,153,0.6)", glowStrong: "rgba(236,72,153,0.35)" },
@@ -1709,7 +1726,7 @@ export default function HostSessionPage() {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="flex-[1.5] flex flex-col relative z-10 min-h-0 bg-black/40 backdrop-blur-xl rounded-[2rem] border-2 border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden"
+                  className="flex-[1] flex flex-col relative z-10 min-h-0 bg-black/40 backdrop-blur-xl rounded-[2rem] border-2 border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden"
                 >
                   {/* Grid background */}
                   <div className="absolute inset-0 opacity-[0.07]" style={{
@@ -1720,52 +1737,38 @@ export default function HostSessionPage() {
                   <div className="relative z-10 flex flex-col h-full p-4 lg:p-5">
                     <div className="flex items-center justify-between mb-4">
                       <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/50">
-                        {isRevealChart ? "Response Distribution" : "Live Responses"}
+                        Response Distribution
                       </span>
-                      {isRevealChart && (
-                        <span className="text-[11px] font-bold text-white/40">
-                          {totalAnswers} {totalAnswers === 1 ? "vote" : "votes"}
-                        </span>
-                      )}
+                      <span className="text-[11px] font-bold text-white/40">
+                        {totalAnswers} {totalAnswers === 1 ? "vote" : "votes"}
+                      </span>
                     </div>
 
                     <div className="flex-1 flex items-end justify-center gap-4 lg:gap-6 pb-2">
                       {currentQuestion.options.map((opt: any, idx: number) => {
                         const count = answerStats[opt.id] || 0;
                         const pct = totalAnswers > 0 ? Math.round((count / totalAnswers) * 100) : 0;
-                        const isCorrectOpt = isRevealChart && opt.is_correct;
+                        const isCorrectOpt = opt.is_correct;
                         const nc = isCorrectOpt
                           ? { gradient: "from-emerald-300 to-emerald-500", glow: "rgba(52,211,153,0.8)", glowStrong: "rgba(52,211,153,0.5)" }
                           : neonColors[idx % neonColors.length];
                         const letter = String.fromCharCode(65 + idx);
 
-                        const suspenseHeights = [
-                          [70, 180, 110, 210, 85, 155],
-                          [140, 85, 195, 100, 170, 125],
-                          [100, 155, 70, 170, 125, 195],
-                          [170, 110, 155, 55, 195, 100],
-                          [125, 195, 100, 140, 70, 180],
-                          [85, 140, 180, 110, 155, 55],
-                          [155, 70, 125, 195, 85, 170],
-                          [110, 170, 85, 155, 180, 70],
-                        ];
                         const maxBarHeight = 280;
                         const realHeight = pct > 0 ? Math.max(Math.round((pct / 100) * maxBarHeight), 20) : 10;
 
                         return (
                           <div key={opt.id} className="flex flex-col items-center gap-1 flex-1 max-w-[90px]">
-                            {/* Percentage label on top (only during reveal) */}
-                            {isRevealChart && (
-                              <motion.span
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.3 + idx * 0.1 }}
-                                className={`text-sm lg:text-base font-black tabular-nums mb-1 ${isCorrectOpt ? "text-emerald-300" : "text-white/70"}`}
-                                style={{ textShadow: `0 0 10px ${nc.glow}` }}
-                              >
-                                {pct}%
-                              </motion.span>
-                            )}
+                            {/* Percentage label on top */}
+                            <motion.span
+                              initial={{ opacity: 0, y: 8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: 0.3 + idx * 0.1 }}
+                              className={`text-sm lg:text-base font-black tabular-nums mb-1 ${isCorrectOpt ? "text-emerald-300" : "text-white/70"}`}
+                              style={{ textShadow: `0 0 10px ${nc.glow}` }}
+                            >
+                              {pct}%
+                            </motion.span>
                             {/* Neon bar */}
                             <div className="w-full flex items-end justify-center" style={{ height: `${maxBarHeight}px` }}>
                               <motion.div
@@ -1774,21 +1777,8 @@ export default function HostSessionPage() {
                                   boxShadow: `0 0 20px ${nc.glowStrong}, 0 0 40px ${nc.glowStrong}, inset 0 0 20px rgba(255,255,255,0.1)`,
                                 }}
                                 initial={{ height: 10 }}
-                                animate={
-                                  isRevealChart
-                                    ? { height: realHeight }
-                                    : { height: suspenseHeights[idx % suspenseHeights.length] }
-                                }
-                                transition={
-                                  isRevealChart
-                                    ? { duration: 0.8, delay: 0.2 + idx * 0.1, ease: "easeOut" }
-                                    : {
-                                        duration: 2 + (idx % 3) * 0.5,
-                                        repeat: Infinity,
-                                        repeatType: "mirror" as const,
-                                        ease: "easeInOut",
-                                      }
-                                }
+                                animate={{ height: realHeight }}
+                                transition={{ duration: 0.8, delay: 0.2 + idx * 0.1, ease: "easeOut" }}
                               />
                             </div>
                             {/* Letter label */}
@@ -1864,7 +1854,7 @@ export default function HostSessionPage() {
 
                       return (
                         <motion.div
-                          key={lb.user_id || lb.nickname || index}
+                          key={lb.participant_id || lb.user_id || `lb-${index}`}
                           layout="position"
                           initial={{ opacity: 0, x: 30 }}
                           animate={{ opacity: 1, x: 0 }}
