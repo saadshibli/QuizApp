@@ -196,6 +196,35 @@ class SessionController {
       next(error);
     }
   }
+
+  /**
+   * GET /api/sessions/teacher-history
+   * Get session history for the logged-in teacher
+   */
+  static async getTeacherSessionHistory(req, res, next) {
+    try {
+      const history = await SessionService.getTeacherSessionHistory(req.user.id);
+      res.json(history);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/sessions/:sessionId/detail
+   * Get detailed session results for teacher
+   */
+  static async getSessionDetail(req, res, next) {
+    try {
+      const detail = await SessionService.getSessionDetail(
+        req.params.sessionId,
+        req.user.id,
+      );
+      res.json(detail);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = SessionController;

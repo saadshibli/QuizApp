@@ -178,17 +178,34 @@ function initializeSocketHandlers(io) {
           return;
         }
 
-        if (session.status === "Active") {
-          socket.emit("error", { error: "This quiz has already started. You can't join mid-quiz." });
-          return;
-        }
+        let participant;
+        let isReconnect = false;
 
-        // Join participant if not already in session
-        const participant = await SessionService.joinSession(
-          sessionCode,
-          socket.userId,
-          sanitizedNickname || socket.userName,
-        );
+        if (session.status === "Active") {
+          // Allow existing participants to reconnect mid-quiz, block new ones
+          const existingParticipant = await SessionRepository.getParticipant(
+            session.id,
+            socket.userId,
+          );
+          if (!existingParticipant) {
+            socket.emit("error", {
+              error: "This quiz has already started. You can't join mid-quiz.",
+            });
+            return;
+          }
+          participant = existingParticipant;
+          isReconnect = true;
+          console.log(
+            `[Socket] Existing participant ${socket.userId} reconnecting to active session ${session.id}`,
+          );
+        } else {
+          // Normal join for Lobby sessions
+          participant = await SessionService.joinSession(
+            sessionCode,
+            socket.userId,
+            sanitizedNickname || socket.userName,
+          );
+        }
 
         // Store session info on socket
         socket.sessionId = session.id;
@@ -228,11 +245,13 @@ function initializeSocketHandlers(io) {
           if (existing) existing.socketId = socket.id;
         }
 
-        // Notify all users in the session
-        io.to(`session:${session.id}`).emit("ParticipantJoined", {
-          participant,
-          totalParticipants: sessionData.participants.length,
-        });
+        // Notify all users only for new joins (not reconnections)
+        if (!isReconnect) {
+          io.to(`session:${session.id}`).emit("ParticipantJoined", {
+            participant,
+            totalParticipants: sessionData.participants.length,
+          });
+        }
 
         socket.emit("SessionJoined", {
           sessionId: session.id,
@@ -622,6 +641,9 @@ function initializeSocketHandlers(io) {
           totalResponseTime: Number(entry.total_response_time) || 0,
           avatar: entry.avatar || null,
         }));
+
+        // Mark session as Completed in the database so refreshes show finished state
+        await SessionRepository.updateSessionStatus(parseInt(sessionId), "Completed");
 
         io.to(`session:${sessionId}`).emit("QuizEnded", {
           finalLeaderboard,

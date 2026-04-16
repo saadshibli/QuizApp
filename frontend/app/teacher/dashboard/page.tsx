@@ -1,12 +1,55 @@
 ﻿"use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/authStore";
 import { quizAPI, sessionAPI } from "@/lib/api";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+
+interface SessionHistory {
+  session_id: number;
+  session_code: string;
+  status: string;
+  started_at: string;
+  quiz_id: number;
+  quiz_title: string;
+  quiz_theme: string;
+  total_players: number;
+  questions_played: number;
+  top_scorer: string | null;
+}
+
+interface SessionDetail {
+  session: {
+    id: number;
+    session_code: string;
+    status: string;
+    started_at: string;
+    quiz_title: string;
+    quiz_theme: string;
+  };
+  leaderboard: Array<{
+    rank: number;
+    total_score: number;
+    nickname: string;
+    avatar: string | null;
+    total_response_time: number;
+    answers_count: number;
+    correct_count: number;
+  }>;
+  questionStats: Array<{
+    question_id: number;
+    question_text: string;
+    points: number;
+    total_answers: number;
+    correct_answers: number;
+    avg_response_time: number | null;
+  }>;
+  totalPlayers: number;
+}
+
 import {
   LogOut,
   PlusCircle,
@@ -22,6 +65,15 @@ import {
   ChevronRight,
   Activity,
   Zap,
+  History,
+  Trophy,
+  Calendar,
+  X,
+  CheckCircle,
+  XCircle,
+  BarChart2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import SpaceBackground from "@/components/SpaceBackground";
@@ -46,6 +98,10 @@ export default function TeacherDashboard() {
   const [isMounted, setIsMounted] = useState(false);
   const [quizToDelete, setQuizToDelete] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [sessionHistory, setSessionHistory] = useState<SessionHistory[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<SessionDetail | null>(null);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
   const itemsPerPage = 8;
 
   useEffect(() => {
@@ -59,6 +115,7 @@ export default function TeacherDashboard() {
       return;
     }
     loadQuizzes();
+    loadHistory();
   }, [user, isMounted, router]);
 
   const loadQuizzes = async () => {
@@ -71,6 +128,31 @@ export default function TeacherDashboard() {
       console.error(err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadHistory = async () => {
+    try {
+      setIsHistoryLoading(true);
+      const response = await sessionAPI.getTeacherSessionHistory();
+      setSessionHistory(response.data);
+    } catch (err: any) {
+      console.error("Failed to load session history:", err);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
+
+  const openSessionDetail = async (sessionId: number) => {
+    setIsDetailLoading(true);
+    setSelectedSession(null);
+    try {
+      const res = await sessionAPI.getSessionDetail(sessionId);
+      setSelectedSession(res.data);
+    } catch (err) {
+      console.error("Failed to load session detail:", err);
+    } finally {
+      setIsDetailLoading(false);
     }
   };
 
@@ -781,6 +863,335 @@ export default function TeacherDashboard() {
               )}
             </>
           )}
+
+          {/* ─── Session Detail Modal ─── */}
+          <AnimatePresence>
+            {(selectedSession || isDetailLoading) && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[9998] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+                onClick={() => { setSelectedSession(null); setIsDetailLoading(false); }}
+              >
+                <motion.div
+                  initial={{ scale: 0.93, opacity: 0, y: 20 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.93, opacity: 0, y: 20 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 28 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full max-w-3xl max-h-[88vh] overflow-hidden rounded-2xl flex flex-col"
+                  style={{
+                    background: "linear-gradient(180deg, rgba(14,11,40,0.98), rgba(8,6,28,0.99))",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    boxShadow: "0 24px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06)",
+                  }}
+                >
+                  {isDetailLoading && !selectedSession ? (
+                    <div className="flex flex-col items-center justify-center p-16 gap-4">
+                      <div className="w-10 h-10 border-2 border-purple-500/20 border-t-purple-400 rounded-full animate-spin" />
+                      <p className="text-white/50 text-sm">Loading results...</p>
+                    </div>
+                  ) : selectedSession && (
+                    <>
+                      {/* Modal header */}
+                      <div className="shrink-0 px-6 py-5 border-b border-white/8 flex items-start justify-between gap-4"
+                        style={{ background: "linear-gradient(180deg, rgba(139,92,246,0.12), transparent)" }}>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold uppercase tracking-widest text-purple-400/80 mb-1">Session Results</p>
+                          <h3 className="text-xl font-black text-white truncate">{selectedSession.session?.quiz_title}</h3>
+                          <div className="flex flex-wrap items-center gap-3 mt-2">
+                            <span className="text-xs text-white/40 font-mono">#{selectedSession.session?.session_code}</span>
+                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                              selectedSession.session?.status === "Completed"
+                                ? "bg-green-500/15 text-green-400 border border-green-500/25"
+                                : "bg-amber-500/15 text-amber-400 border border-amber-500/25"
+                            }`}>{selectedSession.session?.status}</span>
+                            <span className="text-xs text-white/40 flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {selectedSession.session?.started_at
+                                ? new Date(selectedSession.session.started_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                                : "—"}
+                            </span>
+                            <span className="text-xs text-white/40 flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              {selectedSession.totalPlayers} players
+                            </span>
+                          </div>
+                        </div>
+                        <motion.button
+                          type="button"
+                          whileHover={{ scale: 1.1, rotate: 90 }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => { setSelectedSession(null); setIsDetailLoading(false); }}
+                          className="shrink-0 w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/50 hover:text-white transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </motion.button>
+                      </div>
+
+                      {/* Scrollable content */}
+                      <div className="overflow-y-auto flex-1 p-6 space-y-6">
+                        {/* ── Leaderboard ── */}
+                        {selectedSession.leaderboard.length > 0 && (
+                          <div>
+                            <h4 className="text-xs font-bold uppercase tracking-widest text-white/40 mb-3 flex items-center gap-2">
+                              <Trophy className="w-3.5 h-3.5 text-amber-400" /> Final Leaderboard
+                            </h4>
+                            <div className="space-y-1.5">
+                              {selectedSession.leaderboard.map((entry, i) => {
+                                const medal = ["🥇","🥈","🥉"][i] || null;
+                                const accuracy = entry.answers_count > 0
+                                  ? Math.round((Number(entry.correct_count) / Number(entry.answers_count)) * 100)
+                                  : 0;
+                                const rankColors = [
+                                  "from-yellow-500/20 to-amber-500/10 border-yellow-500/30",
+                                  "from-slate-400/15 to-slate-500/10 border-slate-400/25",
+                                  "from-amber-700/15 to-orange-800/10 border-amber-700/25",
+                                ];
+                                const rowBg = i < 3 ? rankColors[i] : "from-white/[0.03] to-white/[0.02] border-white/[0.06]";
+                                return (
+                                  <motion.div
+                                    key={i}
+                                    initial={{ opacity: 0, x: -12 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: i * 0.04 }}
+                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r ${rowBg} border`}
+                                  >
+                                    <span className="w-6 text-center">
+                                      {medal ? (
+                                        <span className="text-base">{medal}</span>
+                                      ) : (
+                                        <span className="text-xs font-bold text-white/30">#{entry.rank}</span>
+                                      )}
+                                    </span>
+                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500/40 to-pink-500/30 flex items-center justify-center text-sm font-black text-white border border-white/10 shrink-0 overflow-hidden">
+                                      {entry.avatar && entry.avatar.startsWith("http") ? (
+                                        <Image src={entry.avatar} alt={entry.nickname} width={32} height={32} className="w-full h-full object-cover" />
+                                      ) : entry.avatar ? (
+                                        <span>{entry.avatar}</span>
+                                      ) : (
+                                        <span>{(entry.nickname || "?").charAt(0).toUpperCase()}</span>
+                                      )}
+                                    </div>
+                                    <span className="flex-1 text-sm font-semibold text-white truncate">{entry.nickname}</span>
+                                    <div className="flex items-center gap-4 shrink-0">
+                                      <div className="text-right hidden sm:block">
+                                        <p className="text-[10px] text-white/30 uppercase tracking-wider">Accuracy</p>
+                                        <p className={`text-sm font-bold ${accuracy >= 70 ? "text-green-400" : accuracy >= 40 ? "text-amber-400" : "text-rose-400"}`}>{accuracy}%</p>
+                                      </div>
+                                      <div className="text-right hidden sm:block">
+                                        <p className="text-[10px] text-white/30 uppercase tracking-wider">Avg Time</p>
+                                        <p className="text-sm font-bold text-white/60">
+                                          {entry.answers_count > 0 ? ((Number(entry.total_response_time) / Number(entry.answers_count)) / 1000).toFixed(1) + "s" : "—"}
+                                        </p>
+                                      </div>
+                                      <div className="text-right min-w-[56px]">
+                                        <p className="text-[10px] text-white/30 uppercase tracking-wider">Score</p>
+                                        <p className="text-base font-black text-purple-300">{entry.total_score}</p>
+                                      </div>
+                                    </div>
+                                  </motion.div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* ── Question breakdown ── */}
+                        {selectedSession.questionStats.length > 0 && (
+                          <div>
+                            <h4 className="text-xs font-bold uppercase tracking-widest text-white/40 mb-3 flex items-center gap-2">
+                              <BarChart2 className="w-3.5 h-3.5 text-cyan-400" /> Question Breakdown
+                            </h4>
+                            <div className="space-y-2">
+                              {selectedSession.questionStats.map((q, i) => {
+                                const total = Number(q.total_answers) || 0;
+                                const correct = Number(q.correct_answers) || 0;
+                                const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+                                const barColor = pct >= 70 ? "bg-green-500" : pct >= 40 ? "bg-amber-500" : "bg-rose-500";
+                                return (
+                                  <motion.div
+                                    key={q.question_id}
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.1 + i * 0.04 }}
+                                    className="rounded-xl p-4 border border-white/[0.06]"
+                                    style={{ background: "rgba(255,255,255,0.025)" }}
+                                  >
+                                    <div className="flex items-start justify-between gap-3 mb-3">
+                                      <div className="flex items-start gap-2.5 min-w-0">
+                                        <span className="shrink-0 w-6 h-6 rounded-lg bg-cyan-500/15 text-cyan-400 text-xs font-black flex items-center justify-center border border-cyan-500/20">
+                                          {i + 1}
+                                        </span>
+                                        <p className="text-sm text-white/80 leading-snug">{q.question_text}</p>
+                                      </div>
+                                      <span className="shrink-0 text-xs font-bold text-white/40">{q.points}pts</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      <div className="flex-1 h-2 bg-white/8 rounded-full overflow-hidden">
+                                        <motion.div
+                                          className={`h-full rounded-full ${barColor}`}
+                                          initial={{ width: "0%" }}
+                                          animate={{ width: `${pct}%` }}
+                                          transition={{ duration: 0.6, delay: 0.2 + i * 0.04, ease: "easeOut" }}
+                                        />
+                                      </div>
+                                      <span className={`text-xs font-bold w-9 text-right ${pct >= 70 ? "text-green-400" : pct >= 40 ? "text-amber-400" : "text-rose-400"}`}>{pct}%</span>
+                                      <span className="text-xs text-white/30 shrink-0">{correct}/{total} correct</span>
+                                      {q.avg_response_time && (
+                                        <span className="text-xs text-white/30 shrink-0 hidden sm:block">
+                                          ⌀ {(Number(q.avg_response_time) / 1000).toFixed(1)}s
+                                        </span>
+                                      )}
+                                    </div>
+                                  </motion.div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {selectedSession.leaderboard.length === 0 && selectedSession.questionStats.length === 0 && (
+                          <div className="text-center py-8 text-white/30 text-sm">No data available for this session.</div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ─── Quiz History Section ─── */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="mt-10 pb-4"
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                  <History className="w-6 h-6 text-cyan-400" />
+                  Recent Sessions
+                  {sessionHistory.length > 0 && (
+                    <span className="text-sm font-bold bg-cyan-500/15 text-cyan-400 border border-cyan-500/25 px-2.5 py-0.5 rounded-full">
+                      {sessionHistory.length}
+                    </span>
+                  )}
+                </h2>
+                <p className="text-[#a8a3c7] text-sm mt-1">Click a session to view detailed results</p>
+              </div>
+            </div>
+
+            {isHistoryLoading ? (
+              <div className="flex items-center justify-center py-12 gap-3">
+                <div className="w-8 h-8 border-2 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin" />
+                <p className="text-[#a8a3c7] text-sm">Loading history...</p>
+              </div>
+            ) : sessionHistory.length === 0 ? (
+              <div className="backdrop-blur-sm rounded-2xl p-10 border border-white/5 bg-gradient-to-br from-white/5 to-white/[0.02] text-center">
+                <Calendar className="w-10 h-10 text-white/15 mx-auto mb-3" />
+                <p className="text-[#a8a3c7] text-sm">No sessions hosted yet. Start a quiz to see your history here.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+                {sessionHistory.map((session, idx) => (
+                  <motion.button
+                    key={session.session_id}
+                    type="button"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.04 * idx }}
+                    whileHover={{ y: -3, scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => openSessionDetail(session.session_id)}
+                    className="text-left group relative rounded-2xl overflow-hidden border transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    style={{
+                      background: "linear-gradient(135deg, rgba(20,16,50,0.9), rgba(12,10,35,0.95))",
+                      borderColor: session.status === "Completed" ? "rgba(34,197,94,0.2)" : session.status === "Active" ? "rgba(245,158,11,0.3)" : "rgba(255,255,255,0.08)",
+                      boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+                    }}
+                  >
+                    {/* Top accent bar */}
+                    <div className={`h-1 w-full ${
+                      session.status === "Completed" ? "bg-gradient-to-r from-green-500/60 to-emerald-500/40" :
+                      session.status === "Active" ? "bg-gradient-to-r from-amber-500/70 to-orange-500/50" :
+                      "bg-gradient-to-r from-purple-500/40 to-indigo-500/30"
+                    }`} />
+
+                    {/* Hover glow */}
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(ellipse_at_50%_0%,rgba(139,92,246,0.08),transparent_65%)]" />
+
+                    <div className="relative p-4">
+                      {/* Title row */}
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-white group-hover:text-purple-200 transition-colors truncate leading-tight">
+                            {session.quiz_title}
+                          </p>
+                          <p className="text-[11px] text-white/30 font-mono mt-0.5">#{session.session_code}</p>
+                        </div>
+                        <span className={`shrink-0 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md mt-0.5 ${
+                          session.status === "Completed"
+                            ? "bg-green-500/15 text-green-400 border border-green-500/25"
+                            : session.status === "Active"
+                              ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                              : "bg-white/8 text-white/40 border border-white/10"
+                        }`}>{session.status}</span>
+                      </div>
+
+                      {/* Stats row */}
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="flex items-center gap-1.5 bg-white/5 rounded-lg px-2.5 py-1.5 border border-white/8">
+                          <Users className="w-3.5 h-3.5 text-purple-400" />
+                          <span className="text-xs font-bold text-white/70">{session.total_players}</span>
+                          <span className="text-[10px] text-white/30">players</span>
+                        </div>
+                        {session.questions_played > 0 && (
+                          <div className="flex items-center gap-1.5 bg-white/5 rounded-lg px-2.5 py-1.5 border border-white/8">
+                            <BarChart2 className="w-3.5 h-3.5 text-cyan-400" />
+                            <span className="text-xs font-bold text-white/70">{session.questions_played}</span>
+                            <span className="text-[10px] text-white/30">questions</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Top scorer + date */}
+                      <div className="flex items-center justify-between">
+                        {session.top_scorer ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-base">🏆</span>
+                            <span className="text-xs font-semibold text-amber-300/80 truncate max-w-[120px]">{session.top_scorer}</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-white/20">No players</span>
+                        )}
+                        <span className="text-[11px] text-white/30 shrink-0">
+                          {session.started_at
+                            ? new Date(session.started_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                            : "—"}
+                        </span>
+                      </div>
+
+                      {/* View results hint */}
+                      <div className="mt-3 pt-3 border-t border-white/6 flex items-center justify-between">
+                        <span className="text-[11px] text-white/30 group-hover:text-purple-300/60 transition-colors">View detailed results</span>
+                        <motion.div
+                          animate={{ x: [0, 3, 0] }}
+                          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                          className="text-white/20 group-hover:text-purple-400/60 transition-colors"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </motion.div>
+                      </div>
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+            )}
+          </motion.div>
         </main>
       </div>
     </div>

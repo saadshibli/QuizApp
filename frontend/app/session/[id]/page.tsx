@@ -23,6 +23,7 @@ import {
   Zap,
   Trophy,
   Clock,
+  XCircle,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -87,6 +88,7 @@ export default function HostSessionPage() {
       });
   };
   const [isActionLoading, setIsActionLoading] = useState(false);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [answerStats, setAnswerStats] = useState<Record<number, number>>({});
   const [totalAnswers, setTotalAnswers] = useState(0);
   const [themeImage, setThemeImage] = useState<string>("");
@@ -556,6 +558,39 @@ export default function HostSessionPage() {
       setIsActionLoading(false);
     }
   };
+
+  const handleEndQuiz = useCallback(async () => {
+    setShowEndConfirm(false);
+    setIsActionLoading(true);
+    try {
+      // Clear any pending auto-advance
+      if (autoAdvanceRef.current) {
+        clearTimeout(autoAdvanceRef.current);
+        autoAdvanceRef.current = null;
+      }
+      if (leaderboardTimerRef.current) {
+        clearInterval(leaderboardTimerRef.current);
+        leaderboardTimerRef.current = null;
+      }
+
+      const lbRes = await sessionAPI.getLeaderboard(sessionId);
+      setLeaderboard(normalizeLeaderboard(lbRes.data || []));
+
+      const socket = getSocket();
+      if (socket) {
+        socket.emit("broadcastQuizEnded", {
+          sessionId: parseInt(sessionId),
+        });
+      }
+
+      setSessionState("finished");
+      toast("Quiz ended!", { icon: "🏁" });
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to end quiz");
+    } finally {
+      setIsActionLoading(false);
+    }
+  }, [sessionId]);
 
   const handleNextQuestion = useCallback(async () => {
     setIsActionLoading(true);
@@ -1236,6 +1271,17 @@ export default function HostSessionPage() {
                   </span>
                 </div>
               )}
+              <motion.button
+                type="button"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowEndConfirm(true)}
+                disabled={isActionLoading}
+                className="btn-cartoon btn-cartoon-pink px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl flex gap-1.5 items-center font-black text-xs sm:text-sm shadow-[0_0_16px_rgba(236,72,153,0.5)]"
+              >
+                <XCircle className="w-4 h-4" />
+                <span className="hidden sm:inline">End Quiz</span>
+              </motion.button>
               {sessionState === "leaderboard" && (
                 <div className="flex items-center gap-3">
                   {advanceMode === "auto" && leaderboardCountdown > 0 && (
@@ -1272,6 +1318,58 @@ export default function HostSessionPage() {
               )}
             </div>
           </header>
+
+          {/* ═══ End Quiz Confirmation Modal ═══ */}
+          <AnimatePresence>
+            {showEndConfirm && (
+              <motion.div
+                key="end-confirm-overlay"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+                style={{ background: "rgba(2,6,23,0.85)", backdropFilter: "blur(12px)" }}
+                onClick={() => setShowEndConfirm(false)}
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.85, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                  className="w-full max-w-sm bg-slate-950/95 border-2 border-pink-500/50 rounded-3xl p-8 text-center shadow-[0_20px_80px_rgba(236,72,153,0.3)]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="w-16 h-16 rounded-2xl bg-pink-500/20 border border-pink-500/40 flex items-center justify-center mx-auto mb-5">
+                    <XCircle className="w-8 h-8 text-pink-400" />
+                  </div>
+                  <h3 className="text-2xl font-black text-white mb-2 font-display">End Quiz?</h3>
+                  <p className="text-purple-300/70 text-sm mb-7">
+                    This will immediately end the quiz for all players and show the final leaderboard.
+                  </p>
+                  <div className="flex gap-3">
+                    <motion.button
+                      type="button"
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => setShowEndConfirm(false)}
+                      className="flex-1 py-3 rounded-2xl font-black text-sm bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 transition-colors"
+                    >
+                      Cancel
+                    </motion.button>
+                    <motion.button
+                      type="button"
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={handleEndQuiz}
+                      className="flex-1 py-3 rounded-2xl font-black text-sm btn-cartoon btn-cartoon-pink shadow-[0_0_20px_rgba(236,72,153,0.4)]"
+                    >
+                      Yes, End It
+                    </motion.button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* ═══ Start Countdown Overlay Modal ═══ */}
           <AnimatePresence>
@@ -1396,8 +1494,16 @@ export default function HostSessionPage() {
           <main className="flex-1 flex flex-col lg:flex-row gap-3 p-3 lg:p-4 overflow-hidden max-w-[1920px] mx-auto w-full min-h-0">
             {/* Game Board */}
             <div className="flex-[2.5] flex flex-col relative z-10 min-h-0 overflow-hidden">
+              <AnimatePresence mode="wait">
               {currentQuestion ? (
-                <div className="flex flex-col gap-3 h-full bg-black/40 backdrop-blur-xl rounded-[2rem] border-2 border-white/10 p-5 lg:p-7 shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-y-auto min-h-0">
+                <motion.div
+                  key={`question-${currentQuestionIndex}`}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className="flex flex-col gap-3 h-full bg-black/40 backdrop-blur-xl rounded-[2rem] border-2 border-white/10 p-5 lg:p-7 shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-y-auto min-h-0"
+                >
                   {/* Header / Info with Circular Timer */}
                   <div className="flex justify-between items-center shrink-0">
                     <span className="bg-purple-500/20 text-purple-300 px-4 py-1.5 rounded-full font-black tracking-widest uppercase text-sm border border-purple-500/30 shadow-inner">
@@ -1684,9 +1790,16 @@ export default function HostSessionPage() {
                       <Zap size={16} /> Skip Timer
                     </motion.button>
                   )}
-                </div>
+                </motion.div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full gap-5 bg-black/40 backdrop-blur-md rounded-3xl border border-white/10">
+                <motion.div
+                  key="waiting-state"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className="flex flex-col items-center justify-center h-full gap-5 bg-black/40 backdrop-blur-md rounded-3xl border border-white/10"
+                >
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center border border-white/10">
                     <Activity className="w-8 h-8 text-purple-300" />
                   </div>
@@ -1704,11 +1817,13 @@ export default function HostSessionPage() {
                     <Play size={24} fill="currentColor" />{" "}
                     {isActionLoading ? "Loading..." : "Push Question"}
                   </motion.button>
-                </div>
+                </motion.div>
               )}
+              </AnimatePresence>
             </div>
 
             {/* ─── Center Chart Panel (only after question ends) ─── */}
+            <AnimatePresence mode="wait">
             {sessionState === "leaderboard" && currentQuestion?.options && (() => {
               const neonColors = [
                 { gradient: "from-emerald-400 to-emerald-600", glow: "rgba(16,185,129,0.6)", glowStrong: "rgba(16,185,129,0.35)" },
@@ -1722,8 +1837,11 @@ export default function HostSessionPage() {
               ];
               return (
                 <motion.div
+                  key="chart-panel"
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
                   className="flex-[1] flex flex-col relative z-10 min-h-0 bg-black/40 backdrop-blur-xl rounded-[2rem] border-2 border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden"
                 >
                   {/* Grid background */}
@@ -1819,6 +1937,7 @@ export default function HostSessionPage() {
                 </motion.div>
               );
             })()}
+            </AnimatePresence>
 
             {/* Leaderboard Sidebar */}
             <div className="flex-1 w-full lg:max-w-xs cartoon-panel flex flex-col overflow-hidden bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl z-10 rounded-2xl sm:rounded-[2rem] min-h-0 max-h-[40vh] lg:max-h-none">

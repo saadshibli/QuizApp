@@ -263,7 +263,11 @@ export default function QuizPlayerPage() {
     setAnswerFeedback(null);
     setResponseTimeMs(0);
     startTimeRef.current = Date.now();
-    setQuestionNumber((prev) => prev + 1);
+    if (data.currentQuestionIndex != null) {
+      setQuestionNumber(data.currentQuestionIndex + 1);
+    } else {
+      setQuestionNumber((prev) => prev + 1);
+    }
     // timeRemaining will be computed by the single timer loop
   }, []);
 
@@ -361,6 +365,8 @@ export default function QuizPlayerPage() {
                   setLeaderboard(
                     (Array.isArray(lbRes.data) ? lbRes.data : []).map(
                       (entry: any) => ({
+                        participant_id: entry.participant_id,
+                        user_id: entry.user_id || null,
                         rank: entry.rank,
                         nickname: entry.nickname,
                         score: entry.total_score ?? entry.score ?? 0,
@@ -369,6 +375,7 @@ export default function QuizPlayerPage() {
                             entry.total_response_time ??
                               entry.totalResponseTime,
                           ) || 0,
+                        avatar: entry.avatar || null,
                       }),
                     ),
                   );
@@ -460,8 +467,11 @@ export default function QuizPlayerPage() {
     });
 
     onSessionJoined((data: any) => {
-      // Only go to lobby if session hasn't started yet
-      if (data?.status !== "Active") {
+      if (data?.status === "Active") {
+        // Reconnecting to active session — if still on lobby, move to leaderboard
+        // (catch-up QuestionStarted will transition to question if one is active)
+        setStatus((prev) => (prev === "lobbyWaiting" ? "leaderboard" : prev));
+      } else {
         setStatus("lobbyWaiting");
       }
       hasShownStartCountdownRef.current = false;
@@ -547,6 +557,8 @@ export default function QuizPlayerPage() {
       if (data.finalLeaderboard && Array.isArray(data.finalLeaderboard)) {
         setLeaderboard(
           data.finalLeaderboard.map((entry: any) => ({
+            participant_id: entry.participant_id,
+            user_id: entry.user_id || null,
             rank: entry.rank,
             nickname: entry.nickname,
             score: entry.total_score ?? entry.score ?? 0,
@@ -1649,12 +1661,11 @@ export default function QuizPlayerPage() {
               ];
 
               const top3 = leaderboard.slice(0, 3);
-              const myEntry = leaderboard.find(
-                (e: any) => e.nickname === user?.name,
-              );
-              const myRankIndex = leaderboard.findIndex(
-                (e: any) => e.nickname === user?.name,
-              );
+              const isMe = (e: any) =>
+                (e.user_id && e.user_id === user?.id) ||
+                e.nickname === user?.name;
+              const myEntry = leaderboard.find(isMe);
+              const myRankIndex = leaderboard.findIndex(isMe);
 
               return (
                 <motion.div
@@ -1820,7 +1831,7 @@ export default function QuizPlayerPage() {
                         </h3>
                         <div className="space-y-2">
                           {top3.map((entry: any, i: number) => {
-                            const isMe = entry.nickname === user?.name;
+                            const isMe = (entry.user_id && entry.user_id === user?.id) || entry.nickname === user?.name;
                             const mc = reviewMedalColors[i];
                             return (
                               <motion.div
@@ -1996,7 +2007,7 @@ export default function QuizPlayerPage() {
               const podiumOrder = leaderboard.slice(0, 3);
               const restPlayers = leaderboard.slice(3);
               const myRank = leaderboard.findIndex(
-                (e: any) => e.nickname === user?.name,
+                (e: any) => (e.user_id && e.user_id === user?.id) || e.nickname === user?.name,
               );
 
               const CONFETTI_COLORS = [
@@ -2220,7 +2231,7 @@ export default function QuizPlayerPage() {
                         >
                           {podiumDisplay.map(({ data, place }) => {
                             const s = MEDAL_STYLES[place];
-                            const isMe = data.nickname === user?.name;
+                            const isMe = (data.user_id && data.user_id === user?.id) || data.nickname === user?.name;
                             const isFirst = place === 0;
                             const entryDelay =
                               place === 0 ? 0.3 : place === 1 ? 0.55 : 0.75;
@@ -2394,11 +2405,10 @@ export default function QuizPlayerPage() {
                             Other Players
                           </h3>
                         </div>
-                        <div className="p-2.5 space-y-0.5">
+                        <div className="p-2.5 space-y-0.5 max-h-[40vh] overflow-y-auto">
                           {restPlayers
-                            .slice(0, 7)
                             .map((entry: any, i: number) => {
-                              const isMe = entry.nickname === user?.name;
+                              const isMe = (entry.user_id && entry.user_id === user?.id) || entry.nickname === user?.name;
                               return (
                                 <motion.div
                                   key={entry.rank || i}

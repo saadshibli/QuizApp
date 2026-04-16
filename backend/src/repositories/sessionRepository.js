@@ -298,6 +298,107 @@ class SessionRepository {
 
     return result.rows;
   }
+
+  /**
+   * Get detailed session results for a teacher (leaderboard + per-question answer stats)
+   */
+  static async getSessionDetail(sessionId, teacherId) {
+    // Verify ownership
+    const ownerCheck = await query(
+      `SELECT s.id FROM sessions s
+       JOIN quizzes q ON s.quiz_id = q.id
+       WHERE s.id = $1 AND q.teacher_id = $2`,
+      [sessionId, teacherId],
+    );
+    if (ownerCheck.rows.length === 0) return null;
+
+    // Session + quiz info
+    const sessionInfo = await query(
+      `SELECT s.id, s.session_code, s.status, s.started_at,
+              q.id AS quiz_id, q.title AS quiz_title, q.theme AS quiz_theme
+       FROM sessions s JOIN quizzes q ON s.quiz_id = q.id
+       WHERE s.id = $1`,
+      [sessionId],
+    );
+
+    // Full leaderboard
+    const leaderboard = await query(
+      `SELECT l.rank, l.total_score, p.nickname, u.avatar,
+              COALESCE(SUM(a.response_time), 0) AS total_response_time,
+              COUNT(a.id) AS answers_count,
+              COUNT(CASE WHEN a.points_awarded > 0 THEN 1 END) AS correct_count
+       FROM leaderboard l
+       JOIN participants p ON l.participant_id = p.id
+       LEFT JOIN users u ON p.user_id = u.id
+       LEFT JOIN answers a ON a.participant_id = p.id
+       WHERE l.session_id = $1
+       GROUP BY l.rank, l.total_score, p.nickname, u.avatar
+       ORDER BY l.rank ASC`,
+      [sessionId],
+    );
+
+    // Per-question response breakdown
+    const questionStats = await query(
+      `SELECT
+         qq.id AS question_id,
+         qq.question_text,
+         qq.points,
+         (SELECT COUNT(*) FROM answers a2
+          JOIN participants p2 ON a2.participant_id = p2.id
+          WHERE a2.question_id = qq.id AND p2.session_id = $1) AS total_answers,
+         (SELECT COUNT(*) FROM answers a2
+          JOIN participants p2 ON a2.participant_id = p2.id
+          WHERE a2.question_id = qq.id AND a2.points_awarded > 0 AND p2.session_id = $1) AS correct_answers,
+         (SELECT AVG(a2.response_time) FROM answers a2
+          JOIN participants p2 ON a2.participant_id = p2.id
+          WHERE a2.question_id = qq.id AND p2.session_id = $1) AS avg_response_time
+       FROM questions qq
+       JOIN quizzes qz ON qq.quiz_id = qz.id
+       JOIN sessions s ON s.quiz_id = qz.id
+       WHERE s.id = $1
+       ORDER BY qq.id ASC`,
+      [sessionId],
+    );
+
+    return {
+      session: sessionInfo.rows[0],
+      leaderboard: leaderboard.rows,
+      questionStats: questionStats.rows,
+      totalPlayers: leaderboard.rows.length,
+    };
+  }
+
+  /**
+   * Get session history for a teacher (sessions they hosted)
+   */
+  static async getTeacherSessionHistory(teacherId) {
+    const result = await query(
+      `SELECT
+         s.id AS session_id,
+         s.session_code,
+         s.status,
+         s.started_at,
+         q.id AS quiz_id,
+         q.title AS quiz_title,
+         q.theme AS quiz_theme,
+         (SELECT COUNT(*) FROM participants p WHERE p.session_id = s.id) AS total_players,
+         (SELECT COUNT(DISTINCT a.question_id) FROM answers a
+          JOIN participants p ON a.participant_id = p.id
+          WHERE p.session_id = s.id) AS questions_played,
+         (SELECT p2.nickname FROM leaderboard l
+          JOIN participants p2 ON l.participant_id = p2.id
+          WHERE l.session_id = s.id AND l.rank = 1
+          LIMIT 1) AS top_scorer
+       FROM sessions s
+       JOIN quizzes q ON s.quiz_id = q.id
+       WHERE q.teacher_id = $1
+       ORDER BY s.started_at DESC NULLS LAST
+       LIMIT 50`,
+      [teacherId],
+    );
+
+    return result.rows;
+  }
 }
 
 module.exports = SessionRepository;

@@ -354,6 +354,22 @@ class SessionService {
   static async getQuizHistory(userId) {
     return await SessionRepository.getQuizHistory(userId);
   }
+
+  /**
+   * Get session history for a teacher
+   */
+  static async getTeacherSessionHistory(teacherId) {
+    return await SessionRepository.getTeacherSessionHistory(teacherId);
+  }
+
+  /**
+   * Get detailed session results for a teacher
+   */
+  static async getSessionDetail(sessionId, teacherId) {
+    const detail = await SessionRepository.getSessionDetail(sessionId, teacherId);
+    if (!detail) throw ApiError.forbidden("Session not found or access denied");
+    return detail;
+  }
 }
 
 module.exports = SessionService;

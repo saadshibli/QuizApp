@@ -27,6 +27,21 @@ router.post(
 
 router.get("/history", authenticate, SessionController.getQuizHistory);
 
+router.get(
+  "/teacher-history",
+  authenticate,
+  authorize("teacher"),
+  SessionController.getTeacherSessionHistory,
+);
+
+router.get(
+  "/:sessionId/detail",
+  authenticate,
+  authorize("teacher"),
+  validate(schemas.sessionIdParam, "params"),
+  SessionController.getSessionDetail,
+);
+
 router.get("/by-code/:code", authenticate, SessionController.getSessionByCode);
 
 router.get(

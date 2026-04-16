@@ -186,6 +186,11 @@ export const sessionAPI = {
     apiClient.get(`/api/sessions/${sessionId}/leaderboard`),
 
   getQuizHistory: () => apiClient.get("/api/sessions/history"),
+
+  getTeacherSessionHistory: () => apiClient.get("/api/sessions/teacher-history"),
+
+  getSessionDetail: (sessionId: string | number) =>
+    apiClient.get(`/api/sessions/${sessionId}/detail`),
 };
 
 // ==================== AI APIs ====================
