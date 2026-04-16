@@ -1630,7 +1630,7 @@ export default function HostSessionPage() {
                             }
                             className={`relative rounded-2xl px-5 py-4 lg:py-5 flex items-center overflow-hidden transition-all duration-400 backdrop-blur-sm ${
                               isCorrect
-                                ? "bg-emerald-500/30 border-2 border-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.6)] scale-[1.02] z-20"
+                                ? "bg-green-800 border-2 border-green-500 z-20"
                                 : isWrong
                                   ? "bg-gray-800/30 border-2 border-gray-600/40 opacity-50"
                                   : `bg-gradient-to-r ${c.gradient} border-2 ${c.border} ${c.hoverGlow} hover:shadow-lg`
@@ -1639,7 +1639,7 @@ export default function HostSessionPage() {
 <div className="flex items-center gap-4">
                                 <div className="flex items-center gap-3">
                                   <div
-                                    className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center font-black text-base lg:text-xl shrink-0 shadow-md ${isCorrect ? "bg-emerald-400 text-emerald-950" : isWrong ? "bg-gray-600 text-gray-300" : c.chip}`}
+                                    className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center font-black text-base lg:text-xl shrink-0 shadow-md ${isCorrect ? "bg-green-400 text-green-950" : isWrong ? "bg-gray-600 text-gray-300" : c.chip}`}
                                   >
                                     {String.fromCharCode(65 + idx)}
                                   </div>
@@ -1649,13 +1649,11 @@ export default function HostSessionPage() {
                               </div>
                             </div>
 
-                            {/* Celebration effects for correct answer */}
+                            {/* Correct answer checkmark */}
                             {isCorrect && (
-                              <motion.div
-                                className="absolute inset-0 pointer-events-none rounded-xl border-2 border-emerald-300/60"
-                                animate={{ opacity: [0, 0.8, 0] }}
-                                transition={{ duration: 1.5, repeat: Infinity }}
-                              />
+                              <div className="ml-auto flex items-center gap-2 text-green-300 font-black text-sm">
+                                <span>✓ Correct</span>
+                              </div>
                             )}
                           </motion.div>
                         );
@@ -1734,64 +1732,89 @@ export default function HostSessionPage() {
                     backgroundSize: '40px 40px',
                   }} />
 
-                  <div className="relative z-10 flex flex-col h-full p-4 lg:p-5">
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/50">
-                        Response Distribution
+                  <div className="relative z-10 flex flex-col h-full p-5 lg:p-6 gap-3">
+                    {/* Header */}
+                    <div className="flex items-center justify-between shrink-0">
+                      <span className="text-xs font-bold uppercase tracking-[0.15em] text-white/50">
+                        Responses
                       </span>
-                      <span className="text-[11px] font-bold text-white/40">
-                        {totalAnswers} {totalAnswers === 1 ? "vote" : "votes"}
+                      <span className="text-xs font-bold text-white/50 bg-white/5 px-2.5 py-1 rounded-lg border border-white/10">
+                        {totalAnswers} / {players.length} responded
                       </span>
                     </div>
 
-                    <div className="flex-1 flex items-end justify-center gap-4 lg:gap-6 pb-2">
-                      {currentQuestion.options.map((opt: any, idx: number) => {
-                        const count = answerStats[opt.id] || 0;
-                        const pct = totalAnswers > 0 ? Math.round((count / totalAnswers) * 100) : 0;
-                        const isCorrectOpt = opt.is_correct;
-                        const nc = isCorrectOpt
-                          ? { gradient: "from-emerald-300 to-emerald-500", glow: "rgba(52,211,153,0.8)", glowStrong: "rgba(52,211,153,0.5)" }
-                          : neonColors[idx % neonColors.length];
-                        const letter = String.fromCharCode(65 + idx);
+                    {/* Bar chart — flex-1, bars scale to tallest */}
+                    <div className="flex-1 min-h-0 flex items-end gap-2">
+                      {(() => {
+                        const counts = currentQuestion.options.map((o: any) => answerStats[o.id] || 0);
+                        const maxCount = Math.max(...counts, 1);
+                        return currentQuestion.options.map((opt: any, idx: number) => {
+                        const count = counts[idx];
+                          const pct = totalAnswers > 0 ? Math.round((count / totalAnswers) * 100) : 0;
+                          const isCorrectOpt = opt.is_correct;
+                          const nc = isCorrectOpt
+                            ? { gradient: "from-emerald-300 to-emerald-500", glow: "rgba(52,211,153,0.8)", glowStrong: "rgba(52,211,153,0.4)" }
+                            : neonColors[idx % neonColors.length];
+                          const letter = String.fromCharCode(65 + idx);
+                          const heightPct = Math.max((count / maxCount) * 88, count > 0 ? 6 : 3);
 
-                        const maxBarHeight = 280;
-                        const realHeight = pct > 0 ? Math.max(Math.round((pct / 100) * maxBarHeight), 20) : 10;
-
-                        return (
-                          <div key={opt.id} className="flex flex-col items-center gap-1 flex-1 max-w-[90px]">
-                            {/* Percentage label on top */}
-                            <motion.span
-                              initial={{ opacity: 0, y: 8 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: 0.3 + idx * 0.1 }}
-                              className={`text-sm lg:text-base font-black tabular-nums mb-1 ${isCorrectOpt ? "text-emerald-300" : "text-white/70"}`}
-                              style={{ textShadow: `0 0 10px ${nc.glow}` }}
-                            >
-                              {pct}%
-                            </motion.span>
-                            {/* Neon bar */}
-                            <div className="w-full flex items-end justify-center" style={{ height: `${maxBarHeight}px` }}>
-                              <motion.div
-                                className={`w-full max-w-[50px] rounded-xl bg-gradient-to-t ${nc.gradient}`}
-                                style={{
-                                  boxShadow: `0 0 20px ${nc.glowStrong}, 0 0 40px ${nc.glowStrong}, inset 0 0 20px rgba(255,255,255,0.1)`,
-                                }}
-                                initial={{ height: 10 }}
-                                animate={{ height: realHeight }}
-                                transition={{ duration: 0.8, delay: 0.2 + idx * 0.1, ease: "easeOut" }}
-                              />
+                          return (
+                            <div key={opt.id} className="flex-1 flex flex-col items-center gap-1.5 h-full">
+                              {/* Count */}
+                              <div className="shrink-0 flex items-end justify-center" style={{ height: "12%" }}>
+                                <motion.span
+                                  initial={{ opacity: 0, y: 6 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ delay: 0.2 + idx * 0.08 }}
+                                  className={`text-base lg:text-xl font-black tabular-nums leading-none ${isCorrectOpt ? "text-emerald-300" : "text-white/80"}`}
+                                  style={{ textShadow: `0 0 12px ${nc.glow}` }}
+                                >
+                                  {pct}%
+                                </motion.span>
+                              </div>
+                              {/* Bar container */}
+                              <div className="flex-1 w-full flex items-end justify-center">
+                                <motion.div
+                                  className={`w-full max-w-[52px] rounded-t-xl bg-gradient-to-t ${nc.gradient}`}
+                                  style={{
+                                    boxShadow: `0 0 18px ${nc.glowStrong}, 0 -4px 24px ${nc.glowStrong}`,
+                                  }}
+                                  initial={{ height: "2%" }}
+                                  animate={{ height: `${heightPct}%` }}
+                                  transition={{ duration: 0.7, delay: 0.1 + idx * 0.1, ease: "easeOut" }}
+                                />
+                              </div>
+                              {/* Letter + option text */}
+                              <div className="shrink-0 flex flex-col items-center gap-0.5 pb-1">
+                                <span
+                                  className={`text-sm font-black ${isCorrectOpt ? "text-emerald-300" : "text-white/70"}`}
+                                  style={{ textShadow: `0 0 8px ${nc.glow}` }}
+                                >
+                                  {letter}
+                                </span>
+                                <span className={`text-[10px] font-semibold text-center leading-tight max-w-[60px] truncate ${isCorrectOpt ? "text-emerald-400/80" : "text-white/35"}`}>
+                                  {opt.text}
+                                </span>
+                              </div>
                             </div>
-                            {/* Letter label */}
-                            <span
-                              className={`text-sm font-black mt-2 ${isCorrectOpt ? "text-emerald-300" : "text-white/60"}`}
-                              style={{ textShadow: `0 0 8px ${nc.glow}` }}
-                            >
-                              {letter}
-                            </span>
-                          </div>
-                        );
-                      })}
+                          );
+                        });
+                      })()}
                     </div>
+
+                    {/* Correct answer footer */}
+                    {(() => {
+                      const correctOpt = currentQuestion.options.find((o: any) => o.is_correct);
+                      if (!correctOpt) return null;
+                      const correctIdx = currentQuestion.options.indexOf(correctOpt);
+                      const correctLetter = String.fromCharCode(65 + correctIdx);
+                      return (
+                        <div className="shrink-0 pt-3 border-t border-white/10 flex items-center gap-2.5">
+                          <span className="shrink-0 bg-green-500/20 text-green-400 text-[11px] font-black px-2.5 py-1 rounded-md border border-green-500/30 uppercase tracking-wide">✓ Correct</span>
+                          <span className="text-white/90 text-sm font-bold truncate">{correctLetter}. {correctOpt.text}</span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </motion.div>
               );

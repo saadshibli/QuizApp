@@ -70,6 +70,10 @@ class SessionService {
       throw ApiError.badRequest("This session has already ended");
     }
 
+    if (session.status === "Active") {
+      throw ApiError.badRequest("This quiz has already started. You can't join mid-quiz.");
+    }
+
     // Check if user is already in session
     const existingParticipant = await SessionRepository.getParticipant(
       session.id,

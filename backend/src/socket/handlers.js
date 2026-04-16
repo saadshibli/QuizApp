@@ -178,6 +178,11 @@ function initializeSocketHandlers(io) {
           return;
         }
 
+        if (session.status === "Active") {
+          socket.emit("error", { error: "This quiz has already started. You can't join mid-quiz." });
+          return;
+        }
+
         // Join participant if not already in session
         const participant = await SessionService.joinSession(
           sessionCode,
